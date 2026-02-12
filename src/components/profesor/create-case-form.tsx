@@ -201,7 +201,9 @@ export function CreateCaseForm() {
                                 <FormLabel>Estado de Perfusión</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Seleccione un estado de perfusión" />
+                                        </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
                                         <SelectItem value="Normal">Normal</SelectItem>
@@ -221,7 +223,9 @@ export function CreateCaseForm() {
                                 <FormLabel>Nivel de Conciencia</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                     <FormControl>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Seleccione un nivel de conciencia" />
+                                        </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
                                         <SelectItem value="Alert">Alert</SelectItem>
