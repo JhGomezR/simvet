@@ -1,4 +1,5 @@
 import type { Student, Case, ClinicalCase, Feedback, CohortPerformanceData, CommonErrorData, StudentComparisonData } from './types';
+import { PlaceHolderImages } from './placeholder-images';
 
 export const studentData: Student = {
   name: 'Ana García',
@@ -20,20 +21,25 @@ export const caseHistory: Case[] = [
 export const clinicalCases: Record<string, ClinicalCase> = {
   '1': {
     id: '1',
+    name: 'Shock Hipovolémico Canino',
+    description: 'Canino de 25kg politraumatizado por accidente automovilístico. Presenta signos de shock hipovolémico.',
+    difficulty: 'Intermedio',
     patient: {
       id: 'P001',
       name: 'Rocky',
       species: 'Canino',
       age: '5 años',
       weight: '25 kg',
-      chiefComplaint: 'Dificultad respiratoria severa',
+      chiefComplaint: 'Dificultad respiratoria severa y debilidad',
+      imageUrl: PlaceHolderImages.find(img => img.id === 'dog-patient-1')?.imageUrl,
+      triage: 'Nivel I - Resucitación',
     },
     initialVitals: {
-      heartRate: 160,
-      respiratoryRate: 80,
-      temperature: 39.5,
+      heartRate: 180,
+      respiratoryRate: 40,
+      temperature: 37.2,
       perfusionStatus: 'Poor',
-      consciousnessLevel: 'Dull',
+      consciousnessLevel: 'Estuporoso',
     },
   },
 };

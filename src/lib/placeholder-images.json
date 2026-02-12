@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "dog-patient-1",
+      "description": "A Golden Retriever looking sick.",
+      "imageUrl": "https://images.unsplash.com/photo-1504826260979-242151ee45b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxkb2d8ZW58MHx8fHwxNzcwOTMzMTk1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "dog"
+    }
+  ]
 }

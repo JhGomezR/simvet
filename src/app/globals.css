@@ -29,6 +29,13 @@
     --chart-3: 210 40% 98%;
     --chart-4: 222 47% 11%;
     --chart-5: 0 84% 60%;
+
+    --status-stable: 142 76% 36%;
+    --status-stable-foreground: 142 80% 96%;
+    --status-unstable: 38 92% 50%;
+    --status-unstable-foreground: 38 92% 10%;
+    --status-critical: 0 84.2% 60.2%;
+    --status-critical-foreground: 210 40% 98%;
   }
  
   .dark {
@@ -51,6 +58,13 @@
     --border: 217 33% 17%;
     --input: 217 33% 17%;
     --ring: 199 76% 53%;
+
+    --status-stable: 142 71% 21%;
+    --status-stable-foreground: 142 80% 96%;
+    --status-unstable: 38 92% 50%;
+    --status-unstable-foreground: 38 92% 10%;
+    --status-critical: 0 63% 31%;
+    --status-critical-foreground: 210 40% 98%;
   }
 }
  

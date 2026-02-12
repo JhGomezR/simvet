@@ -22,6 +22,8 @@ export type Patient = {
   age: string;
   weight: string;
   chiefComplaint: string;
+  imageUrl?: string;
+  triage: 'Nivel I - Resucitación' | 'Nivel II - Emergencia' | 'Nivel III - Urgente';
 };
 
 export type Vitals = {
@@ -29,11 +31,14 @@ export type Vitals = {
   respiratoryRate: number;
   temperature: number;
   perfusionStatus: 'Normal' | 'Poor' | 'Adequate';
-  consciousnessLevel: 'Alert' | 'Dull' | 'Comatose';
+  consciousnessLevel: 'Alert' | 'Dull' | 'Comatose' | 'Estuporoso';
 };
 
 export type ClinicalCase = {
   id: string;
+  name: string;
+  description: string;
+  difficulty: 'Básico' | 'Intermedio' | 'Avanzado';
   patient: Patient;
   initialVitals: Vitals;
 };
@@ -45,6 +50,13 @@ export type Feedback = {
   academicRecommendations: string[];
   comparisonWithIdealPathway: string;
   finalScore: number;
+};
+
+export type AcademicMetrics = {
+    score: number;
+    criticalErrors: string[];
+    omissions: string[];
+    logicalReasoning: number; // A score from 0 to 100
 };
 
 // Professor types
