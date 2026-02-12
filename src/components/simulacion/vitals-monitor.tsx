@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { type Vitals } from "@/lib/types";
-import { HeartPulse, Lung, Thermometer, BrainCircuit, Droplets } from "lucide-react";
+import { HeartPulse, Wind, Thermometer, BrainCircuit, Droplets } from "lucide-react";
 
 interface VitalsMonitorProps {
   vitals: Vitals;
@@ -33,7 +33,7 @@ export function VitalsMonitor({ vitals, status }: VitalsMonitorProps) {
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4">
         <VitalSign icon={HeartPulse} label="Frecuencia Cardíaca" value={vitals.heartRate} unit="lpm" />
-        <VitalSign icon={Lung} label="Frecuencia Respiratoria" value={vitals.respiratoryRate} unit="rpm" />
+        <VitalSign icon={Wind} label="Frecuencia Respiratoria" value={vitals.respiratoryRate} unit="rpm" />
         <VitalSign icon={Thermometer} label="Temperatura" value={vitals.temperature} unit="°C" />
         <VitalSign icon={Droplets} label="Perfusión" value={vitals.perfusionStatus} unit="" />
         <VitalSign icon={BrainCircuit} label="Conciencia" value={vitals.consciousnessLevel} unit="" />
