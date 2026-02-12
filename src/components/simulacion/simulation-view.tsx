@@ -57,37 +57,44 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
   // Simulation tick
   useEffect(() => {
     const timer = setInterval(() => {
-      setSimTime((prevTime) => prevTime + 1);
-
-      setVitalsHistory(prevHistory => {
-        const lastVitals = prevHistory[prevHistory.length - 1];
-        let newVitals = { ...lastVitals };
-
-        // Simulate natural degradation if patient is not stable
-        if (!isPatientStable && simTime % 5 === 0) {
-            newVitals.heartRate += 2;
-            newVitals.respiratoryRate += 1;
-            
-            toast({
-                variant: 'destructive',
-                title: 'Alerta: El paciente empeora',
-                description: `FC: ${newVitals.heartRate} lpm, FR: ${newVitals.respiratoryRate} rpm`,
-            })
-        }
-        
-        updatePatientStatus(newVitals);
-
-        const newHistory = [...prevHistory, newVitals];
-        if (newHistory.length > MAX_VITALS_HISTORY) {
-            return newHistory.slice(newHistory.length - MAX_VITALS_HISTORY);
-        }
-        return newHistory;
+      const newSimTime = simTime + 1;
+      setSimTime(newSimTime);
+  
+      // Create a mutable copy of the latest vitals to calculate changes
+      const lastVitals = vitalsHistory[vitalsHistory.length - 1];
+      const newVitals = { ...lastVitals };
+      let patientHasWorsened = false;
+  
+      // Simulate natural degradation if the patient is not stable
+      if (!isPatientStable && newSimTime % 5 === 0) {
+        newVitals.heartRate += 2;
+        newVitals.respiratoryRate += 1;
+        patientHasWorsened = true;
+      }
+  
+      // Update patient status based on the new vitals
+      updatePatientStatus(newVitals);
+  
+      // Update the vitals history
+      setVitalsHistory(prev => {
+        const newHistory = [...prev, newVitals];
+        return newHistory.length > MAX_VITALS_HISTORY
+          ? newHistory.slice(newHistory.length - MAX_VITALS_HISTORY)
+          : newHistory;
       });
-
-    }, 2000); // Slower tick for more deliberate changes
-
+  
+      // Trigger toast as a separate side-effect after state updates are queued
+      if (patientHasWorsened) {
+        toast({
+          variant: 'destructive',
+          title: 'Alerta: El paciente empeora',
+          description: `FC: ${newVitals.heartRate} lpm, FR: ${newVitals.respiratoryRate} rpm`,
+        });
+      }
+    }, 2000);
+  
     return () => clearInterval(timer);
-  }, [simTime, isPatientStable, updatePatientStatus, toast]);
+  }, [simTime, isPatientStable, updatePatientStatus, toast, vitalsHistory]);
   
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -102,16 +109,13 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
     // Simulate vital changes based on action
     setVitalsHistory(prevHistory => {
         let newVitals = { ...prevHistory[prevHistory.length - 1] };
-        let scoreChange = 0;
         
         if (value === 'Oxigenoterapia' || value === 'Vía Aérea' || value === 'Respiración') {
             newVitals.respiratoryRate = Math.max(20, newVitals.respiratoryRate - 5);
-            scoreChange = 5;
         }
         if (value === 'Fluidoterapia' || value === 'Circulación') {
             newVitals.heartRate = Math.max(120, newVitals.heartRate - 10);
             newVitals.perfusionStatus = 'Adequate';
-            scoreChange = 5;
         }
 
         const newHistory = [...prevHistory, newVitals];
