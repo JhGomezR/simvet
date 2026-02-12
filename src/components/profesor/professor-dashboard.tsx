@@ -6,6 +6,8 @@ import { CohortAnalysis } from "./cohort-analysis";
 import { CommonErrorsAnalysis } from "./common-errors-analysis";
 import { StudentComparison } from "./student-comparison";
 import type { CohortPerformanceData, CommonErrorData, StudentComparisonData } from "@/lib/types";
+import { CreateCaseForm } from "./create-case-form";
+import { FilePlus2 } from "lucide-react";
 
 interface ProfessorDashboardProps {
     cohortData: CohortPerformanceData[];
@@ -16,11 +18,12 @@ interface ProfessorDashboardProps {
 export function ProfessorDashboard({ cohortData, errorData, studentData }: ProfessorDashboardProps) {
   return (
     <Tabs defaultValue="cohort">
-      <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-5">
         <TabsTrigger value="cohort">Desempeño por Cohorte</TabsTrigger>
         <TabsTrigger value="errors">Mapa de Errores</TabsTrigger>
         <TabsTrigger value="comparison">Comparativa</TabsTrigger>
         <TabsTrigger value="longitudinal">Evolución Semestral</TabsTrigger>
+        <TabsTrigger value="create-case"><FilePlus2 className="h-4 w-4 mr-1" />Crear Caso</TabsTrigger>
       </TabsList>
       <TabsContent value="cohort">
         <Card>
@@ -65,6 +68,9 @@ export function ProfessorDashboard({ cohortData, errorData, studentData }: Profe
             <p>Funcionalidad en desarrollo.</p>
           </CardContent>
         </Card>
+      </TabsContent>
+      <TabsContent value="create-case">
+        <CreateCaseForm />
       </TabsContent>
     </Tabs>
   );
