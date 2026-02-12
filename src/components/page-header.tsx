@@ -7,7 +7,9 @@ export function PageHeader() {
   
   let title = "Dashboard";
 
-  if (pathname.startsWith('/profesor')) {
+  if (pathname.startsWith('/profesor/crear-caso')) {
+    title = "Creación de Caso Clínico";
+  } else if (pathname.startsWith('/profesor')) {
     title = "Panel de Analítica";
   } else if (pathname.startsWith('/simulacion')) {
     title = "Simulación de Caso Clínico";
