@@ -135,18 +135,18 @@ export function CreateCaseForm() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Dificultad</FormLabel>
-                            <FormControl>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Seleccione un nivel de dificultad" />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Básico">Básico</SelectItem>
-                                        <SelectItem value="Intermedio">Intermedio</SelectItem>
-                                        <SelectItem value="Avanzado">Avanzado</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </FormControl>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Básico">Básico</SelectItem>
+                                    <SelectItem value="Intermedio">Intermedio</SelectItem>
+                                    <SelectItem value="Avanzado">Avanzado</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -168,18 +168,18 @@ export function CreateCaseForm() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Nivel de Triage</FormLabel>
-                            <FormControl>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Seleccione el nivel de triage" />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Nivel I - Resucitación">Nivel I - Resucitación</SelectItem>
-                                        <SelectItem value="Nivel II - Emergencia">Nivel II - Emergencia</SelectItem>
-                                        <SelectItem value="Nivel III - Urgente">Nivel III - Urgente</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </FormControl>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Nivel I - Resucitación">Nivel I - Resucitación</SelectItem>
+                                    <SelectItem value="Nivel II - Emergencia">Nivel II - Emergencia</SelectItem>
+                                    <SelectItem value="Nivel III - Urgente">Nivel III - Urgente</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -199,16 +199,16 @@ export function CreateCaseForm() {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Estado de Perfusión</FormLabel>
-                                <FormControl>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Normal">Normal</SelectItem>
-                                            <SelectItem value="Adequate">Adequate</SelectItem>
-                                            <SelectItem value="Poor">Poor</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormControl>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Normal">Normal</SelectItem>
+                                        <SelectItem value="Adequate">Adequate</SelectItem>
+                                        <SelectItem value="Poor">Poor</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -219,17 +219,17 @@ export function CreateCaseForm() {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Nivel de Conciencia</FormLabel>
-                                <FormControl>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="Alert">Alert</SelectItem>
-                                            <SelectItem value="Dull">Dull</SelectItem>
-                                            <SelectItem value="Estuporoso">Estuporoso</SelectItem>
-                                            <SelectItem value="Comatose">Comatose</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormControl>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Alert">Alert</SelectItem>
+                                        <SelectItem value="Dull">Dull</SelectItem>
+                                        <SelectItem value="Estuporoso">Estuporoso</SelectItem>
+                                        <SelectItem value="Comatose">Comatose</SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}
