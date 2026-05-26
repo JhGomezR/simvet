@@ -1,8 +1,14 @@
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { type Vitals } from "@/lib/types";
-import { HeartPulse, Wind, Thermometer, BrainCircuit, Droplets, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { HeartPulse, Wind, Thermometer, BrainCircuit, Droplets, ArrowUp, ArrowDown, Minus, Volume2, VolumeX } from "lucide-react";
 import { VitalTrendChart } from "./vital-trend-chart";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { useVitalsAudio } from "@/hooks/use-vitals-audio";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type PatientStatus = 'Stable' | 'Improving' | 'Worsening' | 'Critical' | 'Unstable';
 
@@ -25,21 +31,21 @@ const getTrend = (current: number, prev: number) => {
     return { icon: Minus, class: 'text-muted-foreground' };
 }
 
-const VitalSign = ({ 
-    icon: Icon, 
-    label, 
-    value, 
-    unit, 
-    trendIcon: TrendIcon, 
-    trendClass, 
-    chartData, 
-    chartKey, 
+const VitalSign = ({
+    icon: Icon,
+    label,
+    value,
+    unit,
+    trendIcon: TrendIcon,
+    trendClass,
+    chartData,
+    chartKey,
     chartColor
-}: { 
-    icon: React.ElementType, 
-    label: string, 
-    value: string | number, 
-    unit: string, 
+}: {
+    icon: React.ElementType,
+    label: string,
+    value: string | number,
+    unit: string,
     trendIcon: React.ElementType,
     trendClass: string,
     chartData: any[],
@@ -65,7 +71,14 @@ const VitalSign = ({
 export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
   const currentVitals = vitalsHistory[vitalsHistory.length - 1];
   const prevVitals = vitalsHistory.length > 1 ? vitalsHistory[vitalsHistory.length - 2] : currentVitals;
-  
+
+  const audio = useVitalsAudio({
+    heartRate: currentVitals?.heartRate ?? 0,
+    respiratoryRate: currentVitals?.respiratoryRate ?? 0,
+    spO2: currentVitals?.spO2,
+    status,
+  });
+
   if (!currentVitals) {
     return (
         <Card>
@@ -91,44 +104,46 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
       <CardHeader>
         <div className="flex justify-between items-center">
             <CardTitle>Monitor Clínico</CardTitle>
-            <span className={cn("font-bold text-lg", config.class.replace('border-', 'text-'))}>{config.text}</span>
+            <div className="flex items-center gap-2">
+              <span className={cn("font-bold text-lg", config.class.replace('border-', 'text-'))}>{config.text}</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title={audio.muted ? 'Audio desactivado' : 'Audio activo'}
+                    onClick={() => { if (audio.muted) audio.setMuted(false); }}
+                  >
+                    {audio.muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5 text-primary" />}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-3" align="end">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Audio del monitor</span>
+                      <Button variant={audio.muted ? 'outline' : 'default'} size="sm" onClick={() => audio.setMuted(!audio.muted)}>
+                        {audio.muted ? 'Activar' : 'Silenciar'}
+                      </Button>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Volumen ({Math.round(audio.volume * 100)}%)</p>
+                      <Slider value={[audio.volume * 100]} max={100} step={5} onValueChange={(v) => audio.setVolume(v[0] / 100)} disabled={audio.muted} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Beep cardíaco sincronizado a la FC. Sonido respiratorio sincronizado a la FR. El tono del beep baja cuando la SpO2 cae.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
         </div>
         <CardDescription>Signos vitales en tiempo real.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-3">
-        <VitalSign
-            icon={HeartPulse}
-            label="Frecuencia Cardíaca"
-            value={currentVitals.heartRate}
-            unit="lpm"
-            trendIcon={hrTrend.icon}
-            trendClass={hrTrend.class}
-            chartData={vitalsHistory}
-            chartKey="heartRate"
-            chartColor="hsl(var(--destructive))"
-        />
-        <VitalSign
-            icon={Wind}
-            label="Frecuencia Respiratoria"
-            value={currentVitals.respiratoryRate}
-            unit="rpm"
-            trendIcon={rrTrend.icon}
-            trendClass={rrTrend.class}
-            chartData={vitalsHistory}
-            chartKey="respiratoryRate"
-            chartColor="hsl(var(--primary))"
-        />
-        <VitalSign
-            icon={Thermometer}
-            label="Temperatura"
-            value={currentVitals.temperature.toFixed(1)}
-            unit="°C"
-            trendIcon={tempTrend.icon}
-            trendClass={tempTrend.class}
-            chartData={vitalsHistory}
-            chartKey="temperature"
-            chartColor="hsl(var(--accent))"
-        />
+        <VitalSign icon={HeartPulse} label="Frecuencia Cardíaca" value={currentVitals.heartRate} unit="lpm" trendIcon={hrTrend.icon} trendClass={hrTrend.class} chartData={vitalsHistory} chartKey="heartRate" chartColor="hsl(var(--destructive))" />
+        <VitalSign icon={Wind} label="Frecuencia Respiratoria" value={currentVitals.respiratoryRate} unit="rpm" trendIcon={rrTrend.icon} trendClass={rrTrend.class} chartData={vitalsHistory} chartKey="respiratoryRate" chartColor="hsl(var(--primary))" />
+        <VitalSign icon={Thermometer} label="Temperatura" value={currentVitals.temperature.toFixed(1)} unit="°C" trendIcon={tempTrend.icon} trendClass={tempTrend.class} chartData={vitalsHistory} chartKey="temperature" chartColor="hsl(var(--accent))" />
         {(currentVitals.spO2 !== undefined || currentVitals.systolicBP !== undefined) && (
           <div className="grid grid-cols-2 gap-3">
             {currentVitals.spO2 !== undefined && (
@@ -198,7 +213,6 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
             </div>
           </div>
         )}
-
       </CardContent>
     </Card>
   );

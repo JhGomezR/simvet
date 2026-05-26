@@ -1,13 +1,13 @@
 /**
- * Firebase client SDK initialization (singleton).
+ * Firebase client SDK initialization (singleton, lazy).
  *
- * IMPORTANTE: Este archivo se ejecuta tanto en el servidor (RSC, Server Actions)
- * como en el cliente. Usamos `getApps()` para evitar reinicializar la app en
- * cada hot reload de Next.js durante desarrollo.
+ * Las variables NEXT_PUBLIC_* deben configurarse en:
+ *   - Local: .env.local
+ *   - Producción (Vercel): Project Settings -> Environment Variables
  *
- * Las variables NEXT_PUBLIC_* se exponen al bundle del cliente (es seguro,
- * la apiKey de Firebase Web está diseñada para ser pública — la seguridad
- * vive en las Firestore Rules y Firebase Auth).
+ * La inicialización es LAZY (se difiere hasta el primer uso real). Esto evita
+ * que el build de Next.js falle cuando pre-renderiza páginas estáticas que
+ * importan este módulo transitivamente sin usar Firebase (ej. /_not-found).
  */
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
@@ -23,18 +23,43 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Validación temprana: si falta una variable, el error es claro
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  throw new Error(
-    'Firebase configuration is missing. Verifica que .env.local contenga ' +
-      'las variables NEXT_PUBLIC_FIREBASE_* requeridas.'
-  );
+let _app: FirebaseApp | null = null;
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+let _storage: FirebaseStorage | null = null;
+
+function getFirebaseApp(): FirebaseApp {
+  if (_app) return _app;
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    throw new Error(
+      'Firebase configuration is missing. Configura las variables NEXT_PUBLIC_FIREBASE_* en .env.local (local) o en Vercel Project Settings.'
+    );
+  }
+  _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  return _app;
 }
 
-// Singleton: si ya existe una app inicializada, la reutilizamos
-const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const app: FirebaseApp = new Proxy({} as FirebaseApp, {
+  get(_t, prop) { return Reflect.get(getFirebaseApp(), prop); },
+});
 
-export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
-export const storage: FirebaseStorage = getStorage(app);
-export { app };
+export const auth: Auth = new Proxy({} as Auth, {
+  get(_t, prop) {
+    if (!_auth) _auth = getAuth(getFirebaseApp());
+    return Reflect.get(_auth, prop);
+  },
+});
+
+export const db: Firestore = new Proxy({} as Firestore, {
+  get(_t, prop) {
+    if (!_db) _db = getFirestore(getFirebaseApp());
+    return Reflect.get(_db, prop);
+  },
+});
+
+export const storage: FirebaseStorage = new Proxy({} as FirebaseStorage, {
+  get(_t, prop) {
+    if (!_storage) _storage = getStorage(getFirebaseApp());
+    return Reflect.get(_storage, prop);
+  },
+});
