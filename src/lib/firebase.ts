@@ -1,13 +1,14 @@
 /**
- * Firebase client SDK initialization (singleton, lazy).
+ * Firebase client SDK initialization (singleton).
  *
- * Las variables NEXT_PUBLIC_* deben configurarse en:
+ * Patrón: inicialización eager pero condicional. Si las variables de entorno
+ * NEXT_PUBLIC_FIREBASE_* están presentes, inicializa Firebase normalmente.
+ * Si NO están (build sin env vars, ej. /_not-found prerender), los exports
+ * quedan como undefined — los componentes que no usan Firebase no se rompen.
+ *
+ * Variables requeridas en runtime:
  *   - Local: .env.local
  *   - Producción (Vercel): Project Settings -> Environment Variables
- *
- * La inicialización es LAZY (se difiere hasta el primer uso real). Esto evita
- * que el build de Next.js falle cuando pre-renderiza páginas estáticas que
- * importan este módulo transitivamente sin usar Firebase (ej. /_not-found).
  */
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
@@ -23,43 +24,22 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let _app: FirebaseApp | null = null;
-let _auth: Auth | null = null;
-let _db: Firestore | null = null;
-let _storage: FirebaseStorage | null = null;
+const hasValidConfig = !!firebaseConfig.apiKey && !!firebaseConfig.projectId;
 
-function getFirebaseApp(): FirebaseApp {
-  if (_app) return _app;
-  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-    throw new Error(
-      'Firebase configuration is missing. Configura las variables NEXT_PUBLIC_FIREBASE_* en .env.local (local) o en Vercel Project Settings.'
-    );
-  }
-  _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  return _app;
+if (!hasValidConfig && typeof window !== 'undefined') {
+  console.error(
+    '[Firebase] Configuración faltante. Las variables NEXT_PUBLIC_FIREBASE_* no están definidas. ' +
+      'Verifica .env.local (local) o Project Settings -> Environment Variables (Vercel).'
+  );
 }
 
-export const app: FirebaseApp = new Proxy({} as FirebaseApp, {
-  get(_t, prop) { return Reflect.get(getFirebaseApp(), prop); },
-});
+const _app: FirebaseApp | undefined = hasValidConfig
+  ? (getApps().length === 0 ? initializeApp(firebaseConfig as Record<string, string>) : getApp())
+  : undefined;
 
-export const auth: Auth = new Proxy({} as Auth, {
-  get(_t, prop) {
-    if (!_auth) _auth = getAuth(getFirebaseApp());
-    return Reflect.get(_auth, prop);
-  },
-});
-
-export const db: Firestore = new Proxy({} as Firestore, {
-  get(_t, prop) {
-    if (!_db) _db = getFirestore(getFirebaseApp());
-    return Reflect.get(_db, prop);
-  },
-});
-
-export const storage: FirebaseStorage = new Proxy({} as FirebaseStorage, {
-  get(_t, prop) {
-    if (!_storage) _storage = getStorage(getFirebaseApp());
-    return Reflect.get(_storage, prop);
-  },
-});
+// Exports — son objetos reales del SDK (no proxies). En el caso edge de build
+// sin env vars, serán undefined; las páginas que no los usan no se rompen.
+export const app = _app as FirebaseApp;
+export const auth = (_app ? getAuth(_app) : undefined) as Auth;
+export const db = (_app ? getFirestore(_app) : undefined) as Firestore;
+export const storage = (_app ? getStorage(_app) : undefined) as FirebaseStorage;
