@@ -9,7 +9,11 @@
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "seed:data": "tsx scripts/seed-data.ts",
+    "seed:all": "npm run seed:admin && npm run seed:data",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",

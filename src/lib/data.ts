@@ -18,18 +18,23 @@ export const caseHistory: Case[] = [
   { id: 'C005', name: 'Trauma por Caída en Felino', date: '2023-11-12', score: 95, status: 'Completado' },
 ];
 
+/**
+ * @deprecated Los casos clínicos ahora se cargan desde Firestore (colección "cases").
+ * Esto se mantiene solo como referencia de la estructura mínima legacy.
+ * Para datos reales: usa casesRepo.listPublished() / casesRepo.getById(id).
+ */
 export const clinicalCases: Record<string, ClinicalCase> = {
   '1': {
     id: '1',
-    name: 'Shock Hipovolémico Canino',
-    description: 'Canino de 25kg politraumatizado por accidente automovilístico. Presenta signos de shock hipovolémico.',
+    name: 'Shock Hipovolémico Canino (legacy mock)',
+    description: 'Canino de 25kg politraumatizado por accidente automovilístico.',
     difficulty: 'Intermedio',
     patient: {
       id: 'P001',
       name: 'Rocky',
       species: 'Canino',
       age: '5 años',
-      weight: '25 kg',
+      weightKg: 25,
       chiefComplaint: 'Dificultad respiratoria severa y debilidad',
       imageUrl: PlaceHolderImages.find(img => img.id === 'dog-patient-1')?.imageUrl,
       triage: 'Nivel I - Resucitación',
@@ -38,7 +43,7 @@ export const clinicalCases: Record<string, ClinicalCase> = {
       heartRate: 180,
       respiratoryRate: 40,
       temperature: 37.2,
-      perfusionStatus: 'Poor',
+      perfusionStatus: 'Pobre',
       consciousnessLevel: 'Estuporoso',
     },
   },

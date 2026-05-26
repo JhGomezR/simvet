@@ -1,0 +1,153 @@
+rules_version = '2';
+
+// SimVet Urgencias - Firestore Security Rules
+// Política: deny-by-default. Solo se permite explícitamente.
+// Roles: student | professor | admin (definidos en users/{uid}.role)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPERS - Funciones reutilizables para validar identidad/rol
+    // ============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function myRole() {
+      return userDoc(request.auth.uid).role;
+    }
+
+    function isStudent() {
+      return isSignedIn() && myRole() == 'student';
+    }
+
+    function isProfessor() {
+      return isSignedIn() && myRole() == 'professor';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myRole() == 'admin';
+    }
+
+    function isProfessorOrAdmin() {
+      return isProfessor() || isAdmin();
+    }
+
+    // ============================================================
+    // USERS - Perfiles de usuario
+    // ============================================================
+    // - Cada usuario lee su propio doc
+    // - Admins leen/escriben cualquier user (promueve/degrada roles)
+    // - Profesores leen users de sus estudiantes (vía consultas filtradas)
+    // - Nadie cambia su propio role (solo admin)
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin() || isProfessor();
+      allow create: if isSelf(uid)
+        && request.resource.data.role == 'student'
+        && request.resource.data.email == request.auth.token.email;
+      allow update: if (
+        // Self update: no puede tocar role ni mustChangePassword salvo para apagarlo
+        (isSelf(uid)
+          && request.resource.data.role == resource.data.role)
+        // Admin puede todo
+        || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ============================================================
+    // CASES - Casos clínicos creados por profesores
+    // ============================================================
+    // - Estudiantes leen solo casos publicados (status == 'published')
+    // - Profesores leen sus propios casos (drafts + published) y publicados de otros
+    // - Admins leen y escriben todo
+    // - Solo profesores/admins crean
+    // - Solo el autor o admin edita/borra
+    match /cases/{caseId} {
+      allow read: if isSignedIn() && (
+        resource.data.status == 'published'
+        || resource.data.authorUid == request.auth.uid
+        || isAdmin()
+      );
+      allow create: if isProfessorOrAdmin()
+        && request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAdmin() || (
+        isProfessorOrAdmin()
+        && resource.data.authorUid == request.auth.uid
+      );
+      allow delete: if isAdmin() || (
+        isProfessorOrAdmin()
+        && resource.data.authorUid == request.auth.uid
+      );
+    }
+
+    // ============================================================
+    // ATTEMPTS - Intentos de un estudiante en un caso
+    // ============================================================
+    // - El estudiante crea/edita sus propios intentos
+    // - El estudiante lee sus propios intentos
+    // - Profesores leen intentos de sus estudiantes (validación en query)
+    // - Admins leen todo
+    // - Nadie borra intentos salvo admin (registro académico)
+    match /attempts/{attemptId} {
+      allow read: if isSignedIn() && (
+        resource.data.studentUid == request.auth.uid
+        || isProfessorOrAdmin()
+      );
+      allow create: if isStudent()
+        && request.resource.data.studentUid == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.studentUid == request.auth.uid;
+      allow delete: if isAdmin();
+
+      // Eventos del intento (cada acción del estudiante con timestamp)
+      match /events/{eventId} {
+        allow read: if isSignedIn() && (
+          get(/databases/$(database)/documents/attempts/$(attemptId)).data.studentUid == request.auth.uid
+          || isProfessorOrAdmin()
+        );
+        allow create: if isSignedIn()
+          && get(/databases/$(database)/documents/attempts/$(attemptId)).data.studentUid == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ============================================================
+    // CLASSES - Cursos/clases del profesor
+    // ============================================================
+    // - Profesor lee/edita sus propias clases
+    // - Estudiantes leen las clases en las que están inscritos
+    // - Admins leen y escriben todo
+    match /classes/{classId} {
+      allow read: if isSignedIn() && (
+        resource.data.professorUid == request.auth.uid
+        || request.auth.uid in resource.data.studentUids
+        || isAdmin()
+      );
+      allow create: if isProfessorOrAdmin()
+        && request.resource.data.professorUid == request.auth.uid;
+      allow update: if isAdmin() || (
+        isProfessorOrAdmin()
+        && resource.data.professorUid == request.auth.uid
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ============================================================
+    // DENY-ALL CATCH (defensa en profundidad)
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

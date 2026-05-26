@@ -3,28 +3,44 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FlaskConical, BookUser, FilePlus2 } from "lucide-react";
+import { LayoutDashboard, FlaskConical, BookUser, FilePlus2, ShieldCheck } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useAuth } from "@/contexts/auth-context";
+import type { UserRole } from "@/lib/types";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  roles?: UserRole[]; // si se omite, visible a todos los logueados
+};
+
+const navItems: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/simulacion/1", icon: FlaskConical, label: "Simulación" },
-  { href: "/profesor", icon: BookUser, label: "Modo Profesor" },
-  { href: "/profesor/crear-caso", icon: FilePlus2, label: "Crear Caso" },
+  { href: "/profesor", icon: BookUser, label: "Modo Profesor", roles: ['professor', 'admin'] },
+  { href: "/profesor/crear-caso", icon: FilePlus2, label: "Crear Caso", roles: ['professor', 'admin'] },
+  { href: "/admin", icon: ShieldCheck, label: "Administración", roles: ['admin'] },
 ];
 
 export function MainNav() {
   const pathname = usePathname();
+  const { role } = useAuth();
+
+  const visibleItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    return role && item.roles.includes(role);
+  });
 
   return (
     <nav className="grid items-start px-2 text-sm font-medium">
       <TooltipProvider>
-        {navItems.map(({ href, icon: Icon, label }) => {
+        {visibleItems.map(({ href, icon: Icon, label }) => {
           const isActive = pathname === href || (href.startsWith('/simulacion') && pathname.startsWith('/simulacion'));
           return (
             <Tooltip key={href}>

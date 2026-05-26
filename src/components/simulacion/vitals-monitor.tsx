@@ -96,10 +96,10 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
         <CardDescription>Signos vitales en tiempo real.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-3">
-        <VitalSign 
-            icon={HeartPulse} 
-            label="Frecuencia Cardíaca" 
-            value={currentVitals.heartRate} 
+        <VitalSign
+            icon={HeartPulse}
+            label="Frecuencia Cardíaca"
+            value={currentVitals.heartRate}
             unit="lpm"
             trendIcon={hrTrend.icon}
             trendClass={hrTrend.class}
@@ -107,10 +107,10 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
             chartKey="heartRate"
             chartColor="hsl(var(--destructive))"
         />
-        <VitalSign 
-            icon={Wind} 
-            label="Frecuencia Respiratoria" 
-            value={currentVitals.respiratoryRate} 
+        <VitalSign
+            icon={Wind}
+            label="Frecuencia Respiratoria"
+            value={currentVitals.respiratoryRate}
             unit="rpm"
             trendIcon={rrTrend.icon}
             trendClass={rrTrend.class}
@@ -118,10 +118,10 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
             chartKey="respiratoryRate"
             chartColor="hsl(var(--primary))"
         />
-        <VitalSign 
-            icon={Thermometer} 
-            label="Temperatura" 
-            value={currentVitals.temperature.toFixed(1)} 
+        <VitalSign
+            icon={Thermometer}
+            label="Temperatura"
+            value={currentVitals.temperature.toFixed(1)}
             unit="°C"
             trendIcon={tempTrend.icon}
             trendClass={tempTrend.class}
@@ -129,6 +129,50 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
             chartKey="temperature"
             chartColor="hsl(var(--accent))"
         />
+        {(currentVitals.spO2 !== undefined || currentVitals.systolicBP !== undefined) && (
+          <div className="grid grid-cols-2 gap-3">
+            {currentVitals.spO2 !== undefined && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <Droplets className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">SpO2</p>
+                  <p className="text-md font-bold">{currentVitals.spO2}%</p>
+                </div>
+              </div>
+            )}
+            {currentVitals.systolicBP !== undefined && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <HeartPulse className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">PA Sistólica</p>
+                  <p className="text-md font-bold">{currentVitals.systolicBP} mmHg</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        {(currentVitals.capillaryRefillTime !== undefined || currentVitals.lactate !== undefined) && (
+          <div className="grid grid-cols-2 gap-3">
+            {currentVitals.capillaryRefillTime !== undefined && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <Droplets className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">TRC</p>
+                  <p className="text-md font-bold">{currentVitals.capillaryRefillTime} s</p>
+                </div>
+              </div>
+            )}
+            {currentVitals.lactate !== undefined && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                <Droplets className="h-6 w-6 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Lactato</p>
+                  <p className="text-md font-bold">{currentVitals.lactate} mmol/L</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
                 <Droplets className="h-6 w-6 text-primary"/>
@@ -145,6 +189,15 @@ export function VitalsMonitor({ vitalsHistory, status }: VitalsMonitorProps) {
                 </div>
             </div>
         </div>
+        {currentVitals.mucousColor && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+            <Droplets className="h-6 w-6 text-primary" />
+            <div>
+              <p className="text-xs text-muted-foreground">Mucosas</p>
+              <p className="text-md font-bold">{currentVitals.mucousColor}</p>
+            </div>
+          </div>
+        )}
 
       </CardContent>
     </Card>

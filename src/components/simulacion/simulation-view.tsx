@@ -1,101 +1,123 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { PatientInfoPanel } from "./patient-info-panel";
 import { DecisionPanel } from "./decision-panel";
 import { VitalsMonitor, type PatientStatus } from "./vitals-monitor";
 import { Button } from "@/components/ui/button";
 import { FeedbackDialog } from "./feedback-dialog";
-import { mockFeedback } from "@/lib/data";
 import { AcademicProgressPanel } from "./academic-progress-panel";
-import type { ClinicalCase, Vitals, AcademicMetrics } from "@/lib/types";
-import { AlertTriangle, Clock } from "lucide-react";
+import type {
+  ClinicalCase,
+  Vitals,
+  AcademicMetrics,
+  AttemptEvent,
+  Feedback,
+} from "@/lib/types";
+import { AlertTriangle, Clock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
+import { attemptsRepo } from "@/lib/repositories";
+import { generateFeedbackAction } from "@/app/actions/generate-feedback";
 
 interface SimulationViewProps {
   clinicalCase: ClinicalCase;
 }
 
-const MAX_VITALS_HISTORY = 30;
+const MAX_VITALS_HISTORY = 60;
 
 export function SimulationView({ clinicalCase }: SimulationViewProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
   const [simTime, setSimTime] = useState(0);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [generatingFeedback, setGeneratingFeedback] = useState(false);
   const [vitalsHistory, setVitalsHistory] = useState<Vitals[]>([clinicalCase.initialVitals]);
   const [patientStatus, setPatientStatus] = useState<PatientStatus>('Critical');
   const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
   const [academicMetrics, setAcademicMetrics] = useState<AcademicMetrics>({
-      score: 100,
-      criticalErrors: [],
-      omissions: [],
-      logicalReasoning: 80,
+    score: 100,
+    criticalErrors: [],
+    omissions: [],
+    logicalReasoning: 80,
   });
-  const { toast } = useToast();
+  const eventsRef = useRef<AttemptEvent[]>([]);
+  const attemptIdRef = useRef<string | null>(null);
+  const startedAtRef = useRef<number>(Date.now());
 
   const currentVitals = vitalsHistory[vitalsHistory.length - 1];
   const isPatientStable = patientStatus === 'Stable' || patientStatus === 'Improving';
-  
+
+  // Crear el intento en Firestore al montar
+  useEffect(() => {
+    const createAttempt = async () => {
+      if (!user || attemptIdRef.current) return;
+      try {
+        const id = await attemptsRepo.create({
+          studentUid: user.uid,
+          caseId: clinicalCase.id,
+          status: 'in_progress',
+          startedAt: startedAtRef.current,
+        });
+        attemptIdRef.current = id;
+      } catch (err) {
+        console.error('No se pudo crear el intento:', err);
+      }
+    };
+    createAttempt();
+  }, [user, clinicalCase.id]);
+
   const updatePatientStatus = useCallback((vitals: Vitals) => {
-    // This is a simplified logic model
     let score = 0;
-    if (vitals.heartRate < 160 && vitals.heartRate > 80) score++;
+    // Frecuencia cardíaca por especie aproximada
+    const isCat = (clinicalCase.patient.species || '').toLowerCase().includes('felino');
+    const hrUpper = isCat ? 220 : 160;
+    const hrLower = isCat ? 120 : 60;
+    if (vitals.heartRate < hrUpper && vitals.heartRate > hrLower) score++;
     else score--;
-    if (vitals.respiratoryRate < 40 && vitals.respiratoryRate > 15) score++;
+
+    if (vitals.respiratoryRate < 40 && vitals.respiratoryRate > 12) score++;
     else score--;
-    if (vitals.perfusionStatus === 'Normal' || vitals.perfusionStatus === 'Adequate') score++;
-    if (vitals.consciousnessLevel === 'Alert') score++;
+
+    if (vitals.perfusionStatus === 'Normal' || vitals.perfusionStatus === 'Adecuada') score++;
+    if (vitals.consciousnessLevel === 'Alerta') score++;
+    if (vitals.spO2 && vitals.spO2 >= 94) score++;
+    if (vitals.spO2 && vitals.spO2 < 88) score--;
 
     if (score > 2) {
-        setPatientStatus(prev => (prev === 'Improving' || prev === 'Stable') ? 'Stable' : 'Improving');
+      setPatientStatus((prev) => (prev === 'Improving' || prev === 'Stable' ? 'Stable' : 'Improving'));
     } else if (score >= 0) {
-        setPatientStatus(prev => (prev === 'Worsening' || prev === 'Unstable') ? 'Unstable' : 'Worsening');
+      setPatientStatus((prev) => (prev === 'Worsening' || prev === 'Unstable' ? 'Unstable' : 'Worsening'));
     } else {
-        setPatientStatus('Critical');
+      setPatientStatus('Critical');
     }
-  }, []);
+  }, [clinicalCase.patient.species]);
 
-  // Simulation tick
+  // Simulation tick — degradación natural si no es estable
   useEffect(() => {
     const timer = setInterval(() => {
-      const newSimTime = simTime + 1;
-      setSimTime(newSimTime);
-  
-      // Create a mutable copy of the latest vitals to calculate changes
-      const lastVitals = vitalsHistory[vitalsHistory.length - 1];
-      const newVitals = { ...lastVitals };
-      let patientHasWorsened = false;
-  
-      // Simulate natural degradation if the patient is not stable
-      if (!isPatientStable && newSimTime % 5 === 0) {
-        newVitals.heartRate += 2;
-        newVitals.respiratoryRate += 1;
-        patientHasWorsened = true;
-      }
-  
-      // Update patient status based on the new vitals
-      updatePatientStatus(newVitals);
-  
-      // Update the vitals history
-      setVitalsHistory(prev => {
-        const newHistory = [...prev, newVitals];
-        return newHistory.length > MAX_VITALS_HISTORY
-          ? newHistory.slice(newHistory.length - MAX_VITALS_HISTORY)
-          : newHistory;
+      setSimTime((t) => t + 1);
+
+      setVitalsHistory((prev) => {
+        const last = prev[prev.length - 1];
+        const next = { ...last };
+        if (!isPatientStable && (simTime + 1) % 5 === 0) {
+          next.heartRate += 2;
+          next.respiratoryRate += 1;
+          if (next.spO2) next.spO2 = Math.max(70, next.spO2 - 1);
+          if (next.lactate) next.lactate = Math.min(15, next.lactate + 0.2);
+        }
+        updatePatientStatus(next);
+        const arr = [...prev, next];
+        return arr.length > MAX_VITALS_HISTORY ? arr.slice(arr.length - MAX_VITALS_HISTORY) : arr;
       });
-  
-      // Trigger toast as a separate side-effect after state updates are queued
-      if (patientHasWorsened) {
-        toast({
-          variant: 'destructive',
-          title: 'Alerta: El paciente empeora',
-          description: `FC: ${newVitals.heartRate} lpm, FR: ${newVitals.respiratoryRate} rpm`,
-        });
-      }
     }, 2000);
-  
+
     return () => clearInterval(timer);
-  }, [simTime, isPatientStable, updatePatientStatus, toast, vitalsHistory]);
-  
+  }, [simTime, isPatientStable, updatePatientStatus]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
     const secs = (seconds % 60).toString().padStart(2, '0');
@@ -103,50 +125,122 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
   };
 
   const handleAction = (actionType: string, value: string) => {
-    console.log(`Action taken: ${actionType} - ${value}`);
-    setCompletedSteps(prev => ({...prev, [value]: true}));
-    
-    // Simulate vital changes based on action
-    setVitalsHistory(prevHistory => {
-        let newVitals = { ...prevHistory[prevHistory.length - 1] };
-        
-        if (value === 'Oxigenoterapia' || value === 'Vía Aérea' || value === 'Respiración') {
-            newVitals.respiratoryRate = Math.max(20, newVitals.respiratoryRate - 5);
-        }
-        if (value === 'Fluidoterapia' || value === 'Circulación') {
-            newVitals.heartRate = Math.max(120, newVitals.heartRate - 10);
-            newVitals.perfusionStatus = 'Adequate';
-        }
+    setCompletedSteps((prev) => ({ ...prev, [value]: true }));
 
-        const newHistory = [...prevHistory, newVitals];
-        if (newHistory.length > MAX_VITALS_HISTORY) {
-            return newHistory.slice(newHistory.length - MAX_VITALS_HISTORY);
+    // Registrar evento
+    const ev: AttemptEvent = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: Date.now(),
+      type: actionType.toLowerCase() as AttemptEvent['type'],
+      actionId: value,
+      actionLabel: value,
+    };
+    eventsRef.current.push(ev);
+
+    // Aplicar efecto del tratamiento sobre las vitales
+    setVitalsHistory((prevHistory) => {
+      const newVitals = { ...prevHistory[prevHistory.length - 1] };
+
+      if (value === 'Oxigenoterapia' || value === 'Vía Aérea' || value === 'Respiración') {
+        newVitals.respiratoryRate = Math.max(20, newVitals.respiratoryRate - 5);
+        if (newVitals.spO2) newVitals.spO2 = Math.min(99, newVitals.spO2 + 6);
+      }
+      if (value === 'Fluidoterapia' || value === 'Circulación') {
+        newVitals.heartRate = Math.max(80, newVitals.heartRate - 10);
+        newVitals.perfusionStatus = 'Adecuada';
+        if (newVitals.systolicBP) newVitals.systolicBP = Math.min(120, newVitals.systolicBP + 20);
+        if (newVitals.lactate) newVitals.lactate = Math.max(1.5, newVitals.lactate - 1.5);
+      }
+      if (value === 'Administrar Fármaco') {
+        // Genérico: leve mejora
+        if (newVitals.consciousnessLevel === 'Estuporoso') {
+          newVitals.consciousnessLevel = 'Apagado';
         }
-        return newHistory;
+      }
+
+      const newHistory = [...prevHistory, newVitals];
+      return newHistory.length > MAX_VITALS_HISTORY
+        ? newHistory.slice(newHistory.length - MAX_VITALS_HISTORY)
+        : newHistory;
     });
 
-    setAcademicMetrics(prev => ({...prev, score: prev.score + 5}));
+    setAcademicMetrics((prev) => ({ ...prev, score: Math.min(100, prev.score + 2) }));
 
     toast({
-        title: "Acción Realizada",
-        description: `${value}`,
-    })
+      title: 'Acción realizada',
+      description: value,
+    });
+  };
+
+  const handleFinalize = async () => {
+    setGeneratingFeedback(true);
+    setIsFeedbackOpen(true);
+
+    // Construir input para el flow de Gemini
+    const studentActions = eventsRef.current.map((e) => `[${new Date(e.timestamp).toISOString().slice(11, 19)}] ${e.actionLabel}`);
+    const idealPathway = clinicalCase.idealPathway?.join(' → ') ?? 'No definido';
+    const finalScore = academicMetrics.score;
+
+    // Heurística simple: errores e ítems correctos (mejorable con análisis del flow Genkit)
+    const recommendedTreatments = clinicalCase.treatmentPlan?.filter((t) => t.isRecommended).map((t) => t.name) ?? [];
+    const studentTreatments = studentActions.filter((a) => a.includes('terapia') || a.includes('Administrar'));
+    const correctDecisions = studentTreatments.slice(0, 3);
+    const criticalErrors = recommendedTreatments
+      .filter((tx) => !studentActions.some((a) => a.toLowerCase().includes(tx.toLowerCase())))
+      .slice(0, 3)
+      .map((tx) => `No se realizó: ${tx}`);
+
+    try {
+      const fb = await generateFeedbackAction({
+        caseSummary: `${clinicalCase.name}. ${clinicalCase.description}. Paciente: ${clinicalCase.patient.name}, ${clinicalCase.patient.species}, ${clinicalCase.patient.weightKg} kg. Motivo: ${clinicalCase.patient.chiefComplaint}.`,
+        studentActions,
+        criticalErrors,
+        correctDecisions,
+        idealClinicalPathway: idealPathway,
+        finalScore,
+      });
+      setFeedback(fb);
+
+      // Persistir el intento finalizado
+      if (attemptIdRef.current) {
+        await attemptsRepo.update(attemptIdRef.current, {
+          status: 'completed',
+          finishedAt: Date.now(),
+          finalScore,
+          vitalsTimeline: vitalsHistory,
+          events: eventsRef.current,
+          feedback: fb,
+        });
+      }
+    } catch (err) {
+      console.error('Error finalizando:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error generando feedback',
+        description: 'Tu intento fue guardado pero el feedback no pudo generarse.',
+      });
+    } finally {
+      setGeneratingFeedback(false);
+    }
   };
 
   return (
     <div className="w-full space-y-4">
       <div className="flex justify-between items-center bg-card p-2 rounded-lg border">
         <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 font-mono text-xl font-bold bg-primary text-primary-foreground p-2 rounded">
-                <Clock className="h-6 w-6" />
-                <span>{formatTime(simTime)}</span>
-             </div>
-             <div className="hidden md:flex items-center gap-2 text-destructive font-semibold">
-                <AlertTriangle className="h-5 w-5"/>
-                <span>EL PACIENTE PUEDE FALLECER SI NO SE ACTÚA</span>
-            </div>
+          <div className="flex items-center gap-2 font-mono text-xl font-bold bg-primary text-primary-foreground p-2 rounded">
+            <Clock className="h-6 w-6" />
+            <span>{formatTime(simTime)}</span>
+          </div>
+          <div className="hidden md:flex items-center gap-2 text-destructive font-semibold">
+            <AlertTriangle className="h-5 w-5" />
+            <span>EL PACIENTE PUEDE FALLECER SI NO SE ACTÚA</span>
+          </div>
         </div>
-        <Button size="lg" onClick={() => setIsFeedbackOpen(true)}>Finalizar Caso y Evaluar</Button>
+        <Button size="lg" onClick={handleFinalize} disabled={generatingFeedback}>
+          {generatingFeedback && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Finalizar Caso y Evaluar
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -155,10 +249,11 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
           <AcademicProgressPanel metrics={academicMetrics} />
         </div>
         <div className="lg:col-span-5">
-          <DecisionPanel 
-            onAction={handleAction} 
-            completedSteps={completedSteps} 
+          <DecisionPanel
+            onAction={handleAction}
+            completedSteps={completedSteps}
             isPatientStable={isPatientStable}
+            clinicalCase={clinicalCase}
           />
         </div>
         <div className="lg:col-span-4">
@@ -166,10 +261,17 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         </div>
       </div>
 
-      <FeedbackDialog 
+      <FeedbackDialog
         isOpen={isFeedbackOpen}
         onClose={() => setIsFeedbackOpen(false)}
-        feedback={mockFeedback}
+        feedback={feedback ?? {
+          narrativeSummary: generatingFeedback ? 'Generando análisis con IA...' : '',
+          criticalErrors: [],
+          correctDecisions: [],
+          academicRecommendations: [],
+          comparisonWithIdealPathway: '',
+          finalScore: academicMetrics.score,
+        }}
       />
     </div>
   );
