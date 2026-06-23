@@ -1,3 +1,6 @@
+'use client';
+
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,14 +13,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { type Student } from "@/lib/types";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, KeyRound } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 interface UserNavProps {
   student: Student;
 }
 
 export function UserNav({ student }: UserNavProps) {
-  const initials = student.name.split(' ').map(n => n[0]).join('');
+  const router = useRouter();
+  const { signOut, profile } = useAuth();
+  const initials = student.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -33,7 +50,9 @@ export function UserNav({ student }: UserNavProps) {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{student.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              Nivel: {student.level}
+              {profile?.role === 'admin' ? 'Administrador' :
+                profile?.role === 'professor' ? 'Profesor' :
+                `Nivel: ${student.level}`}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -43,9 +62,13 @@ export function UserNav({ student }: UserNavProps) {
             <User className="mr-2 h-4 w-4" />
             <span>Perfil</span>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push('/account/change-password')}>
+            <KeyRound className="mr-2 h-4 w-4" />
+            <span>Cambiar contraseña</span>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Cerrar sesión</span>
         </DropdownMenuItem>

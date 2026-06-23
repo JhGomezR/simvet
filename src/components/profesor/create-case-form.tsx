@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -24,6 +26,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
+import { casesRepo } from '@/lib/repositories';
+import { Loader2 } from 'lucide-react';
 
 const caseFormSchema = z.object({
   // Case info
@@ -39,24 +44,30 @@ const caseFormSchema = z.object({
   chiefComplaint: z.string().min(10, 'El motivo de consulta es requerido.'),
   triage: z.enum(['Nivel I - Resucitación', 'Nivel II - Emergencia', 'Nivel III - Urgente']),
   imageUrl: z.string().url('Debe ser una URL válida.').optional().or(z.literal('')),
-  
+
   // Initial Vitals
   heartRate: z.coerce.number().int().min(0),
   respiratoryRate: z.coerce.number().int().min(0),
   temperature: z.coerce.number().min(0),
-  perfusionStatus: z.enum(['Normal', 'Poor', 'Adequate']),
-  consciousnessLevel: z.enum(['Alert', 'Dull', 'Comatose', 'Estuporoso']),
+  perfusionStatus: z.enum(['Normal', 'Adecuada', 'Pobre', 'Crítica']),
+  consciousnessLevel: z.enum(['Alerta', 'Apagado', 'Estuporoso', 'Comatoso']),
 
   // Additional factors
   environmentalFactors: z.string().optional(),
   medicalFactors: z.string().optional(),
   otherFactors: z.string().optional(),
+
+  publishImmediately: z.boolean().optional(),
 });
 
 type CaseFormValues = z.infer<typeof caseFormSchema>;
 
 export function CreateCaseForm() {
   const { toast } = useToast();
+  const router = useRouter();
+  const { user, profile } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+
   const form = useForm<CaseFormValues>({
     resolver: zodResolver(caseFormSchema),
     defaultValues: {
@@ -73,21 +84,70 @@ export function CreateCaseForm() {
       heartRate: 120,
       respiratoryRate: 30,
       temperature: 38.5,
-      perfusionStatus: 'Adequate',
-      consciousnessLevel: 'Alert',
+      perfusionStatus: 'Adecuada',
+      consciousnessLevel: 'Alerta',
       environmentalFactors: '',
       medicalFactors: '',
       otherFactors: '',
+      publishImmediately: true,
     },
   });
 
-  function onSubmit(data: CaseFormValues) {
-    console.log(data);
-    toast({
-      title: 'Caso Clínico Creado',
-      description: `El caso "${data.name}" ha sido creado exitosamente.`,
-    });
-    form.reset();
+  async function onSubmit(data: CaseFormValues) {
+    if (!user || !profile || (profile.role !== 'professor' && profile.role !== 'admin')) {
+      toast({
+        variant: 'destructive',
+        title: 'No tienes permisos para crear casos',
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const weightNum = parseFloat(data.weight.replace(/[^\d.]/g, '')) || 0;
+      const caseId = await casesRepo.create({
+        name: data.name,
+        description: data.description,
+        difficulty: data.difficulty,
+        status: data.publishImmediately ? 'published' : 'draft',
+        authorUid: user.uid,
+        patient: {
+          id: `P${Date.now()}`,
+          name: data.patientName,
+          species: data.species,
+          age: data.age,
+          weightKg: weightNum,
+          chiefComplaint: data.chiefComplaint,
+          imageUrl: data.imageUrl || undefined,
+          triage: data.triage,
+        },
+        initialVitals: {
+          heartRate: data.heartRate,
+          respiratoryRate: data.respiratoryRate,
+          temperature: data.temperature,
+          perfusionStatus: data.perfusionStatus,
+          consciousnessLevel: data.consciousnessLevel,
+        },
+        environmentalFactors: data.environmentalFactors,
+        medicalFactors: data.medicalFactors,
+        otherFactors: data.otherFactors,
+      });
+
+      toast({
+        title: 'Caso Clínico Creado',
+        description: `"${data.name}" ${data.publishImmediately ? 'publicado' : 'guardado como borrador'}.`,
+      });
+      form.reset();
+      router.push('/profesor');
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Error al guardar el caso',
+        description: err instanceof Error ? err.message : 'Verifica las reglas de Firestore',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -316,8 +376,9 @@ export function CreateCaseForm() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="Normal">Normal</SelectItem>
-                          <SelectItem value="Adequate">Adequate</SelectItem>
-                          <SelectItem value="Poor">Poor</SelectItem>
+                          <SelectItem value="Adecuada">Adecuada</SelectItem>
+                          <SelectItem value="Pobre">Pobre</SelectItem>
+                          <SelectItem value="Crítica">Crítica</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -337,10 +398,10 @@ export function CreateCaseForm() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Alert">Alert</SelectItem>
-                          <SelectItem value="Dull">Dull</SelectItem>
+                          <SelectItem value="Alerta">Alerta</SelectItem>
+                          <SelectItem value="Apagado">Apagado</SelectItem>
                           <SelectItem value="Estuporoso">Estuporoso</SelectItem>
-                          <SelectItem value="Comatose">Comatose</SelectItem>
+                          <SelectItem value="Comatoso">Comatoso</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -393,7 +454,23 @@ export function CreateCaseForm() {
               />
             </div>
 
-            <Button type="submit">Crear Caso Clínico</Button>
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Crear y Publicar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                onClick={() => {
+                  form.setValue('publishImmediately', false);
+                  form.handleSubmit(onSubmit)();
+                }}
+              >
+                Guardar como borrador
+              </Button>
+            </div>
           </form>
         </Form>
       </CardContent>

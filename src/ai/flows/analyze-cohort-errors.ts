@@ -54,10 +54,7 @@ Based on this data, provide:
 2. A detailed map of frequent errors. For each common error, identify its description, how many times it occurred, provide example student IDs who frequently made this error, and infer the associated knowledge gap.
 3. Concrete suggestions for adapting the curriculum or teaching strategies to address these identified knowledge gaps.
 
-Ensure the output is a JSON object strictly conforming to the following schema:
-```json
-{{zodSchema AnalyzeCohortErrorsOutputSchema}}
-````,
+Return a structured JSON object that strictly conforms to the requested output schema.`,
 });
 
 const analyzeCohortErrorsFlow = ai.defineFlow(

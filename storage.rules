@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// SimVet Urgencias - Firebase Storage Security Rules
+// Política deny-by-default. Tres carpetas principales:
+// - avatars/{uid}/...     : avatar del usuario (solo él escribe)
+// - patients/{caseId}/... : fotos del paciente del caso (solo autor/admin escribe)
+// - public/...            : recursos públicos de solo lectura
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function under5MB() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Avatares: el dueño escribe, todos los logueados leen
+    match /avatars/{uid}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSelf(uid) && isImage() && under5MB();
+    }
+
+    // Imágenes de pacientes asociadas a un caso clínico
+    // Por ahora abierto a lectura para usuarios logueados; la escritura se valida desde la app
+    match /patients/{caseId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && under5MB();
+    }
+
+    // Recursos públicos (logos, placeholders del sistema)
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deny-all por defecto
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

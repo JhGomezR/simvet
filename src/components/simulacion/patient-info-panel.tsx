@@ -47,8 +47,10 @@ export function PatientInfoPanel({ patient, caseInfo }: PatientInfoPanelProps) {
       <CardContent className="space-y-4">
         <div className="space-y-2">
             <InfoRow label="Especie" value={patient.species} />
+            {patient.breed && <InfoRow label="Raza" value={patient.breed} />}
             <InfoRow label="Edad" value={patient.age} />
-            <InfoRow label="Peso" value={patient.weight} />
+            <InfoRow label="Peso" value={`${patient.weightKg} kg`} />
+            {patient.sex && <InfoRow label="Sexo" value={patient.sex} />}
         </div>
         <div className="text-sm">
             <p className="text-muted-foreground mb-1">Motivo de Consulta:</p>
