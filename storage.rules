@@ -25,6 +25,19 @@ service firebase.storage {
       return request.resource.size < 5 * 1024 * 1024;
     }
 
+    function under20MB() {
+      return request.resource.size < 20 * 1024 * 1024;
+    }
+
+    // Documentos clínicos permitidos: PDF, imágenes, DOCX, TXT.
+    function isClinicalDoc() {
+      return request.resource.contentType.matches('application/pdf')
+        || request.resource.contentType.matches('image/.*')
+        || request.resource.contentType.matches('text/plain')
+        || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        || request.resource.contentType.matches('audio/.*');
+    }
+
     // Avatares: el dueño escribe, todos los logueados leen
     match /avatars/{uid}/{fileName} {
       allow read: if isSignedIn();
@@ -36,6 +49,13 @@ service firebase.storage {
     match /patients/{caseId}/{fileName} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && isImage() && under5MB();
+    }
+
+    // Documentos clínicos (historias subidas, resultados de lab, dictados de voz).
+    // Lectura para logueados; escritura validando tipo y tamaño (<20MB).
+    match /clinical/{clinicId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isClinicalDoc() && under20MB();
     }
 
     // Recursos públicos (logos, placeholders del sistema)

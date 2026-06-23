@@ -3,7 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FlaskConical, BookUser, FilePlus2, ShieldCheck } from "lucide-react";
+import {
+  LayoutDashboard,
+  FlaskConical,
+  BookUser,
+  FilePlus2,
+  ShieldCheck,
+  Users,
+  PawPrint,
+  Stethoscope,
+  FileText,
+  Search,
+  Settings,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -20,12 +32,23 @@ type NavItem = {
   roles?: UserRole[]; // si se omite, visible a todos los logueados
 };
 
+const CLINICAL: UserRole[] = ['admin', 'veterinarian', 'assistant', 'professor'];
+
 const navItems: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/simulacion/1", icon: FlaskConical, label: "Simulación" },
+  // ── Gestión clínica (SimVet Clinical) ──
+  { href: "/clinica/propietarios", icon: Users, label: "Propietarios", roles: CLINICAL },
+  { href: "/clinica/mascotas", icon: PawPrint, label: "Mascotas", roles: CLINICAL },
+  { href: "/clinica/consultas", icon: Stethoscope, label: "Consultas", roles: CLINICAL },
+  { href: "/clinica/historias", icon: FileText, label: "Historias IA", roles: CLINICAL },
+  { href: "/clinica/busqueda", icon: Search, label: "Búsqueda IA", roles: CLINICAL },
+  // ── Docencia ──
   { href: "/profesor", icon: BookUser, label: "Modo Profesor", roles: ['professor', 'admin'] },
   { href: "/profesor/crear-caso", icon: FilePlus2, label: "Crear Caso", roles: ['professor', 'admin'] },
+  // ── Administración ──
   { href: "/admin", icon: ShieldCheck, label: "Administración", roles: ['admin'] },
+  { href: "/admin/configuracion", icon: Settings, label: "Configuración", roles: ['admin'] },
 ];
 
 export function MainNav() {
