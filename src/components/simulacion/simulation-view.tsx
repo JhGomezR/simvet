@@ -13,8 +13,12 @@ import type {
   AcademicMetrics,
   AttemptEvent,
   Feedback,
+  ActivityTiming,
 } from "@/lib/types";
-import { AlertTriangle, Clock, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { AlertTriangle, Clock, Loader2, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
 import { attemptsRepo } from "@/lib/repositories";
@@ -25,6 +29,53 @@ interface SimulationViewProps {
 }
 
 const MAX_VITALS_HISTORY = 60;
+
+/**
+ * Calcula los tiempos de ejecución por actividad a partir de los eventos
+ * cronológicos del intento (flujo: "Tiempos de ejecución de cada actividad").
+ * Agrupa por tipo de evento y mide el lapso entre el inicio y el último evento
+ * de cada categoría.
+ */
+function computeActivityTimings(
+  events: AttemptEvent[],
+  startedAt: number,
+  finishedAt: number
+): ActivityTiming[] {
+  const LABELS: Record<string, string> = {
+    evaluation: 'Evaluación ABCDE',
+    anamnesis: 'Anamnesis',
+    exam: 'Examen físico',
+    test: 'Pruebas diagnósticas',
+    differential: 'Diagnóstico diferencial',
+    treatment: 'Tratamiento',
+    note: 'Notas',
+  };
+  const byType = new Map<string, number[]>();
+  for (const e of events) {
+    const arr = byType.get(e.type) ?? [];
+    arr.push(e.timestamp);
+    byType.set(e.type, arr);
+  }
+  const timings: ActivityTiming[] = [];
+  for (const [type, stamps] of byType) {
+    const start = Math.min(...stamps);
+    const end = Math.max(...stamps);
+    timings.push({
+      activity: LABELS[type] ?? type,
+      startedAt: start,
+      finishedAt: end,
+      durationMs: Math.max(0, end - start),
+    });
+  }
+  timings.sort((a, b) => a.startedAt - b.startedAt);
+  return timings;
+}
+
+function timingsToSummary(timings: ActivityTiming[], totalMs: number): string {
+  const fmt = (ms: number) => `${Math.round(ms / 1000)}s`;
+  const parts = timings.map((t) => `${t.activity}: ${fmt(t.durationMs ?? 0)}`);
+  return `Tiempo total: ${fmt(totalMs)}. ${parts.join('; ')}.`;
+}
 
 export function SimulationView({ clinicalCase }: SimulationViewProps) {
   const { user } = useAuth();
@@ -43,9 +94,13 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
     omissions: [],
     logicalReasoning: 80,
   });
+  const [studentAnswers, setStudentAnswers] = useState<Record<string, string>>({});
+  const [activityTimings, setActivityTimings] = useState<ActivityTiming[]>([]);
   const eventsRef = useRef<AttemptEvent[]>([]);
   const attemptIdRef = useRef<string | null>(null);
   const startedAtRef = useRef<number>(Date.now());
+
+  const questions = clinicalCase.studentQuestions ?? [];
 
   const currentVitals = vitalsHistory[vitalsHistory.length - 1];
   const isPatientStable = patientStatus === 'Stable' || patientStatus === 'Improving';
@@ -176,6 +231,23 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
     setGeneratingFeedback(true);
     setIsFeedbackOpen(true);
 
+    // Tiempos de ejecución por actividad
+    const finishedAt = Date.now();
+    const totalDurationMs = finishedAt - startedAtRef.current;
+    const timings = computeActivityTimings(eventsRef.current, startedAtRef.current, finishedAt);
+    setActivityTimings(timings);
+    const activitySummary = timingsToSummary(timings, totalDurationMs);
+
+    // Respuestas del estudiante a las preguntas dirigidas
+    const answersArr = questions
+      .map((q) => ({ question: q.prompt, answer: studentAnswers[q.id] ?? '' }))
+      .filter((a) => a.answer.trim().length > 0);
+    const studentDiagnosis =
+      questions
+        .filter((q) => q.kind === 'diagnostico')
+        .map((q) => studentAnswers[q.id])
+        .find((a) => a && a.trim().length > 0) ?? undefined;
+
     // Construir input para el flow de Gemini
     const studentActions = eventsRef.current.map((e) => `[${new Date(e.timestamp).toISOString().slice(11, 19)}] ${e.actionLabel}`);
     const idealPathway = clinicalCase.idealPathway?.join(' → ') ?? 'No definido';
@@ -198,6 +270,10 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         correctDecisions,
         idealClinicalPathway: idealPathway,
         finalScore,
+        correctDiagnosis: clinicalCase.finalDiagnosis,
+        studentDiagnosis,
+        studentAnswers: answersArr,
+        activitySummary,
       });
       setFeedback(fb);
 
@@ -205,11 +281,14 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
       if (attemptIdRef.current) {
         await attemptsRepo.update(attemptIdRef.current, {
           status: 'completed',
-          finishedAt: Date.now(),
+          finishedAt,
           finalScore,
           vitalsTimeline: vitalsHistory,
           events: eventsRef.current,
           feedback: fb,
+          activityTimings: timings,
+          studentAnswers: answersArr.map((a, i) => ({ questionId: questions[i]?.id ?? `q${i}`, answer: a.answer })),
+          totalDurationMs,
         });
       }
     } catch (err) {
@@ -247,6 +326,52 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         <div className="lg:col-span-3 space-y-6">
           <PatientInfoPanel patient={clinicalCase.patient} caseInfo={clinicalCase} />
           <AcademicProgressPanel metrics={academicMetrics} />
+          {questions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <HelpCircle className="h-4 w-4" /> Preguntas del caso
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {questions.map((q, i) => (
+                  <div key={q.id} className="space-y-1.5">
+                    <Label htmlFor={`q-${q.id}`} className="text-sm">
+                      {i + 1}. {q.prompt}
+                    </Label>
+                    {q.options && q.options.length > 0 ? (
+                      <div className="space-y-1">
+                        {q.options.map((opt) => (
+                          <label key={opt} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={`q-${q.id}`}
+                              value={opt}
+                              checked={studentAnswers[q.id] === opt}
+                              onChange={(e) =>
+                                setStudentAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                              }
+                            />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <Textarea
+                        id={`q-${q.id}`}
+                        value={studentAnswers[q.id] ?? ''}
+                        onChange={(e) =>
+                          setStudentAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                        }
+                        placeholder="Tu respuesta..."
+                        className="min-h-[64px] text-sm"
+                      />
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
         <div className="lg:col-span-5">
           <DecisionPanel
@@ -264,6 +389,7 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
       <FeedbackDialog
         isOpen={isFeedbackOpen}
         onClose={() => setIsFeedbackOpen(false)}
+        timings={activityTimings}
         feedback={feedback ?? {
           narrativeSummary: generatingFeedback ? 'Generando análisis con IA...' : '',
           criticalErrors: [],

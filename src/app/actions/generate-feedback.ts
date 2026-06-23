@@ -16,6 +16,11 @@ export interface GenerateFeedbackParams {
   correctDecisions: string[];
   idealClinicalPathway: string;
   finalScore: number;
+  // Evaluación detallada (SimVet Clinical)
+  correctDiagnosis?: string;
+  studentDiagnosis?: string;
+  studentAnswers?: { question: string; answer: string }[];
+  activitySummary?: string;
 }
 
 export async function generateFeedbackAction(
@@ -29,6 +34,10 @@ export async function generateFeedbackAction(
       correctDecisions: params.correctDecisions,
       idealClinicalPathway: params.idealClinicalPathway,
       finalScore: params.finalScore,
+      correctDiagnosis: params.correctDiagnosis,
+      studentDiagnosis: params.studentDiagnosis,
+      studentAnswers: params.studentAnswers,
+      activitySummary: params.activitySummary,
     });
 
     // Mapeo del output del flow al tipo Feedback de la app
@@ -39,6 +48,10 @@ export async function generateFeedbackAction(
       academicRecommendations: result.academicRecommendations,
       comparisonWithIdealPathway: result.comparisonWithIdealPathway,
       finalScore: params.finalScore,
+      diagnosisCorrect: result.diagnosisCorrect,
+      justificationScore: result.justificationScore,
+      treatmentScore: result.treatmentScore,
+      rubricBreakdown: result.rubricBreakdown,
     };
   } catch (err) {
     console.error('Error generando feedback con Gemini:', err);
