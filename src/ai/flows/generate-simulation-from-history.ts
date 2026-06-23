@@ -93,7 +93,8 @@ export async function generateSimulationFromHistory(
   return output!;
 }
 
-const generateSimulationFromHistoryFlow = ai.defineFlow(
+// Registro del flujo (efecto secundario al importar el módulo en dev.ts).
+ai.defineFlow(
   {
     name: 'generateSimulationFromHistoryFlow',
     inputSchema: z.object({ clinicalText: z.string(), level: LevelEnum }),
@@ -101,5 +102,3 @@ const generateSimulationFromHistoryFlow = ai.defineFlow(
   },
   async (input) => generateSimulationFromHistory(input)
 );
-
-export { generateSimulationFromHistoryFlow };

@@ -1,6 +1,9 @@
-'use server';
 /**
  * Embeddings para búsqueda semántica (SimVet Clinical).
+ *
+ * Módulo SÓLO de servidor (importado por server actions). No lleva
+ * 'use server' porque exporta constantes además de funciones; las server
+ * actions que lo usan ya garantizan que corre en el servidor.
  *
  * Usa el embedder de Gemini (text-embedding-004, 768 dims) vía Genkit.
  * Estos vectores alimentan la búsqueda de "casos parecidos" en Firestore

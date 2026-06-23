@@ -56,7 +56,8 @@ export async function extractClinicalData(
   return output!;
 }
 
-const extractClinicalDataFlow = ai.defineFlow(
+// Registro del flujo (efecto secundario al importar el módulo en dev.ts).
+ai.defineFlow(
   {
     name: 'extractClinicalDataFlow',
     inputSchema: z.object({ rawText: z.string() }),
@@ -64,5 +65,3 @@ const extractClinicalDataFlow = ai.defineFlow(
   },
   async (input) => extractClinicalData(input)
 );
-
-export { extractClinicalDataFlow };

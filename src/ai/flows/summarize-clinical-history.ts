@@ -70,7 +70,8 @@ export async function summarizeClinicalHistory(
   return { ...output!, disclaimer: DEFAULT_AI_DISCLAIMER };
 }
 
-const summarizeClinicalHistoryFlow = ai.defineFlow(
+// Registro del flujo (efecto secundario al importar el módulo en dev.ts).
+ai.defineFlow(
   {
     name: 'summarizeClinicalHistoryFlow',
     inputSchema: z.object({ clinicalText: z.string(), similarCasesContext: z.string().optional() }),
@@ -81,5 +82,3 @@ const summarizeClinicalHistoryFlow = ai.defineFlow(
     return output!;
   }
 );
-
-export { summarizeClinicalHistoryFlow };
