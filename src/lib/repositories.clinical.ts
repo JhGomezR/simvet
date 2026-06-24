@@ -46,6 +46,21 @@ function snapToData<T extends WithId>(snap: { id: string; data: () => unknown })
   return { id: snap.id, ...(snap.data() as object) } as T;
 }
 
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefined(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entryValue]) => entryValue !== undefined)
+      .map(([key, entryValue]) => [key, stripUndefined(entryValue)]);
+    return Object.fromEntries(entries) as T;
+  }
+
+  return value;
+}
+
 /**
  * Fábrica de repositorio CRUD genérico para una colección de nivel raíz.
  * `T` debe incluir `id`, `createdAt`, `updatedAt`.
@@ -81,28 +96,28 @@ function makeRepo<T extends WithId & { createdAt?: number; updatedAt?: number }>
 
     async create(data: Omit<T, 'id'>): Promise<string> {
       const now = Date.now();
-      const ref = await addDoc(col(), {
+      const ref = await addDoc(col(), stripUndefined({
         ...data,
         createdAt: (data as { createdAt?: number }).createdAt ?? now,
         updatedAt: now,
-      });
+      }));
       return ref.id;
     },
 
     /** Crea (o sobreescribe) con un id explícito. Útil para singletons. */
     async set(id: string, data: Omit<T, 'id'>): Promise<void> {
       const now = Date.now();
-      await setDoc(doc(db, collectionName, id), {
+      await setDoc(doc(db, collectionName, id), stripUndefined({
         ...data,
         updatedAt: now,
-      });
+      }));
     },
 
     async update(id: string, data: Partial<T>): Promise<void> {
-      await updateDoc(doc(db, collectionName, id), {
+      await updateDoc(doc(db, collectionName, id), stripUndefined({
         ...data,
         updatedAt: Date.now(),
-      });
+      }));
     },
 
     async remove(id: string): Promise<void> {
