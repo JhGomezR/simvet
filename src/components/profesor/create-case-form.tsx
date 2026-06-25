@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,15 +28,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { casesRepo } from '@/lib/repositories';
-import { Loader2 } from 'lucide-react';
+import type { ClinicalCase } from '@/lib/types';
 
 const caseFormSchema = z.object({
-  // Case info
   name: z.string().min(5, 'El nombre debe tener al menos 5 caracteres.'),
   description: z.string().min(10, 'La descripción debe tener al menos 10 caracteres.'),
   difficulty: z.enum(['Básico', 'Intermedio', 'Avanzado']),
-
-  // Patient info
   patientName: z.string().min(2, 'El nombre del paciente es requerido.'),
   species: z.string().min(3, 'La especie es requerida.'),
   age: z.string().min(1, 'La edad es requerida.'),
@@ -44,60 +41,68 @@ const caseFormSchema = z.object({
   chiefComplaint: z.string().min(10, 'El motivo de consulta es requerido.'),
   triage: z.enum(['Nivel I - Resucitación', 'Nivel II - Emergencia', 'Nivel III - Urgente']),
   imageUrl: z.string().url('Debe ser una URL válida.').optional().or(z.literal('')),
-
-  // Initial Vitals
   heartRate: z.coerce.number().int().min(0),
   respiratoryRate: z.coerce.number().int().min(0),
   temperature: z.coerce.number().min(0),
   perfusionStatus: z.enum(['Normal', 'Adecuada', 'Pobre', 'Crítica']),
   consciousnessLevel: z.enum(['Alerta', 'Apagado', 'Estuporoso', 'Comatoso']),
-
-  // Additional factors
   environmentalFactors: z.string().optional(),
   medicalFactors: z.string().optional(),
   otherFactors: z.string().optional(),
-
   publishImmediately: z.boolean().optional(),
 });
 
 type CaseFormValues = z.infer<typeof caseFormSchema>;
 
-export function CreateCaseForm() {
+interface CreateCaseFormProps {
+  initialCase?: ClinicalCase | null;
+}
+
+function toDefaultValues(initialCase?: ClinicalCase | null): CaseFormValues {
+  return {
+    name: initialCase?.name ?? '',
+    description: initialCase?.description ?? '',
+    difficulty: initialCase?.difficulty ?? 'Intermedio',
+    patientName: initialCase?.patient.name ?? '',
+    species: initialCase?.patient.species ?? '',
+    age: initialCase?.patient.age ?? '',
+    weight: initialCase?.patient.weightKg ? String(initialCase.patient.weightKg) : '',
+    chiefComplaint: initialCase?.patient.chiefComplaint ?? '',
+    triage: initialCase?.patient.triage ?? 'Nivel II - Emergencia',
+    imageUrl: initialCase?.patient.imageUrl ?? '',
+    heartRate: initialCase?.initialVitals.heartRate ?? 120,
+    respiratoryRate: initialCase?.initialVitals.respiratoryRate ?? 30,
+    temperature: initialCase?.initialVitals.temperature ?? 38.5,
+    perfusionStatus: initialCase?.initialVitals.perfusionStatus ?? 'Adecuada',
+    consciousnessLevel: initialCase?.initialVitals.consciousnessLevel ?? 'Alerta',
+    environmentalFactors: initialCase?.environmentalFactors ?? '',
+    medicalFactors: initialCase?.medicalFactors ?? '',
+    otherFactors: initialCase?.otherFactors ?? '',
+    publishImmediately: (initialCase?.status ?? 'published') === 'published',
+  };
+}
+
+export function CreateCaseForm({ initialCase }: CreateCaseFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const { user, profile } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const isEditing = Boolean(initialCase);
 
   const form = useForm<CaseFormValues>({
     resolver: zodResolver(caseFormSchema),
-    defaultValues: {
-      name: '',
-      description: '',
-      difficulty: 'Intermedio',
-      patientName: '',
-      species: '',
-      age: '',
-      weight: '',
-      chiefComplaint: '',
-      triage: 'Nivel II - Emergencia',
-      imageUrl: '',
-      heartRate: 120,
-      respiratoryRate: 30,
-      temperature: 38.5,
-      perfusionStatus: 'Adecuada',
-      consciousnessLevel: 'Alerta',
-      environmentalFactors: '',
-      medicalFactors: '',
-      otherFactors: '',
-      publishImmediately: true,
-    },
+    defaultValues: toDefaultValues(initialCase),
   });
+
+  useEffect(() => {
+    form.reset(toDefaultValues(initialCase));
+  }, [form, initialCase]);
 
   async function onSubmit(data: CaseFormValues) {
     if (!user || !profile || (profile.role !== 'professor' && profile.role !== 'admin')) {
       toast({
         variant: 'destructive',
-        title: 'No tienes permisos para crear casos',
+        title: isEditing ? 'No tienes permisos para editar casos' : 'No tienes permisos para crear casos',
       });
       return;
     }
@@ -105,14 +110,14 @@ export function CreateCaseForm() {
     setSubmitting(true);
     try {
       const weightNum = parseFloat(data.weight.replace(/[^\d.]/g, '')) || 0;
-      const caseId = await casesRepo.create({
+      const payload = {
         name: data.name,
         description: data.description,
         difficulty: data.difficulty,
         status: data.publishImmediately ? 'published' : 'draft',
-        authorUid: user.uid,
+        authorUid: initialCase?.authorUid ?? user.uid,
         patient: {
-          id: `P${Date.now()}`,
+          id: initialCase?.patient.id ?? `P${Date.now()}`,
           name: data.patientName,
           species: data.species,
           age: data.age,
@@ -120,29 +125,37 @@ export function CreateCaseForm() {
           chiefComplaint: data.chiefComplaint,
           imageUrl: data.imageUrl || undefined,
           triage: data.triage,
+          breed: initialCase?.patient.breed,
+          sex: initialCase?.patient.sex,
         },
         initialVitals: {
+          ...initialCase?.initialVitals,
           heartRate: data.heartRate,
           respiratoryRate: data.respiratoryRate,
           temperature: data.temperature,
           perfusionStatus: data.perfusionStatus,
           consciousnessLevel: data.consciousnessLevel,
         },
-        environmentalFactors: data.environmentalFactors,
-        medicalFactors: data.medicalFactors,
-        otherFactors: data.otherFactors,
-      });
+        environmentalFactors: data.environmentalFactors || undefined,
+        medicalFactors: data.medicalFactors || undefined,
+        otherFactors: data.otherFactors || undefined,
+      } satisfies Omit<ClinicalCase, 'id'>;
+
+      if (initialCase) {
+        await casesRepo.update(initialCase.id, payload);
+      } else {
+        await casesRepo.create(payload);
+      }
 
       toast({
-        title: 'Caso Clínico Creado',
+        title: initialCase ? 'Caso clínico actualizado' : 'Caso clínico creado',
         description: `"${data.name}" ${data.publishImmediately ? 'publicado' : 'guardado como borrador'}.`,
       });
-      form.reset();
       router.push('/profesor');
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: 'Error al guardar el caso',
+        title: isEditing ? 'Error al actualizar el caso' : 'Error al guardar el caso',
         description: err instanceof Error ? err.message : 'Verifica las reglas de Firestore',
       });
     } finally {
@@ -153,15 +166,16 @@ export function CreateCaseForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Crear Nuevo Caso Clínico</CardTitle>
+        <CardTitle>{isEditing ? 'Editar Caso Clínico' : 'Crear Nuevo Caso Clínico'}</CardTitle>
         <CardDescription>
-          Complete el formulario para crear una nueva simulación para los estudiantes.
+          {isEditing
+            ? 'Ajusta los datos del caso antes de publicarlo o dejarlo en borrador.'
+            : 'Complete el formulario para crear una nueva simulación para los estudiantes.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Información del Caso</h3>
               <FormField
@@ -213,10 +227,10 @@ export function CreateCaseForm() {
                 )}
               />
             </div>
-            
+
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Información del Paciente</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="patientName"
@@ -322,7 +336,7 @@ export function CreateCaseForm() {
 
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Signos Vitales Iniciales</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="heartRate"
@@ -420,7 +434,7 @@ export function CreateCaseForm() {
                   <FormItem>
                     <FormLabel>Factores Ambientales</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Describa factores ambientales relevantes (ej: vive en departamento, acceso a patio...)" {...field} />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -433,7 +447,7 @@ export function CreateCaseForm() {
                   <FormItem>
                     <FormLabel>Factores Médicos</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Describa historial médico relevante (ej: sufre de alergias, enfermedad crónica...)" {...field} />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -446,7 +460,7 @@ export function CreateCaseForm() {
                   <FormItem>
                     <FormLabel>Otros Factores</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Cualquier otro factor o información relevante para el caso" {...field} />
+                      <Textarea {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -457,7 +471,7 @@ export function CreateCaseForm() {
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={submitting}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Crear y Publicar
+                {isEditing ? 'Guardar cambios' : 'Crear y publicar'}
               </Button>
               <Button
                 type="button"
@@ -465,7 +479,7 @@ export function CreateCaseForm() {
                 disabled={submitting}
                 onClick={() => {
                   form.setValue('publishImmediately', false);
-                  form.handleSubmit(onSubmit)();
+                  void form.handleSubmit(onSubmit)();
                 }}
               >
                 Guardar como borrador

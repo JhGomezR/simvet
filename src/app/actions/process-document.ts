@@ -39,6 +39,32 @@ export interface ProcessDocumentResult {
   error?: string;
 }
 
+function summarizeFallback(rawText: string): ClinicalExtraction {
+  const normalized = rawText.replace(/\r/g, '').trim();
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const summary = normalized.slice(0, 1500);
+  const symptomHints = lines
+    .filter((line) => /motivo|signo|sintom|dolor|vomit|diar|tos|disnea|cojera|fiebre/i.test(line))
+    .slice(0, 6);
+  const diagnosisHints = lines
+    .filter((line) => /diagn[oó]st|impresi[oó]n|dx|presunt|hallazgo/i.test(line))
+    .slice(0, 4);
+  const treatmentHints = lines
+    .filter((line) => /tratamiento|plan|medic|fluid|cirug|analgesi|antibi/i.test(line))
+    .slice(0, 6);
+
+  return {
+    symptoms: symptomHints.length > 0 ? symptomHints : undefined,
+    diagnosis: diagnosisHints.length > 0 ? diagnosisHints : undefined,
+    treatment: treatmentHints.length > 0 ? treatmentHints : undefined,
+    summary,
+    missingFields: ['Validar extracción manualmente'],
+  };
+}
+
 function chunkText(text: string, size = 1000, overlap = 150): string[] {
   const clean = text.replace(/\s+/g, ' ').trim();
   if (clean.length <= size) return clean ? [clean] : [];
@@ -87,7 +113,13 @@ export async function processDocumentAction(
     }
 
     // 2. Estructurar con IA
-    const extraction = (await extractClinicalData({ rawText })) as ClinicalExtraction;
+    let extraction: ClinicalExtraction;
+    try {
+      extraction = (await extractClinicalData({ rawText })) as ClinicalExtraction;
+    } catch (err) {
+      console.warn('[process-document] Falling back to heuristic extraction:', err);
+      extraction = summarizeFallback(rawText);
+    }
 
     // 3. Chunking + embeddings + Vector Search (Admin SDK)
     const adminDb = getAdminDb();
@@ -103,7 +135,7 @@ export async function processDocumentAction(
         const data: Record<string, unknown> = {
           documentId: params.documentId,
           clinicId: params.clinicId,
-          petId: params.petId ?? null,
+          petId: params.petId,
           text: chunks[i],
           index: i,
           createdAt: Date.now(),
@@ -132,6 +164,26 @@ export async function processDocumentAction(
     return { ok: true, rawText, extraction, chunkCount, vectorized };
   } catch (err) {
     console.error('[process-document] Error:', err);
+    const adminDb = getAdminDb();
+    if (adminDb) {
+      try {
+        const failureData: Record<string, unknown> = {
+          processingStatus: 'failed',
+          processingError: err instanceof Error ? err.message : 'Error desconocido',
+          updatedAt: Date.now(),
+        };
+        if (params.rawText) {
+          failureData.extractedText = params.rawText.slice(0, 50000);
+          failureData.extraction = summarizeFallback(params.rawText);
+        }
+        await adminDb.collection('clinicalDocuments').doc(params.documentId).set(
+          failureData,
+          { merge: true }
+        );
+      } catch (persistErr) {
+        console.error('[process-document] Error persisting failure state:', persistErr);
+      }
+    }
     return {
       ok: false,
       rawText: '',

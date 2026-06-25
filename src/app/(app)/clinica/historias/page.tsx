@@ -60,6 +60,7 @@ import { processDocumentAction } from '@/app/actions/process-document';
 import { generateSimulationAction } from '@/app/actions/generate-simulation';
 import type {
   Pet,
+  ClinicalDocument,
   ClinicalExtraction,
   ClinicalFileType,
 } from '@/lib/types';
@@ -128,12 +129,14 @@ export default function HistoriasIAPage() {
   const [petsLoading, setPetsLoading] = useState(true);
   const [petsError, setPetsError] = useState<string | null>(null);
   const [selectedPetId, setSelectedPetId] = useState<string>('');
+  const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
 
   // ── Estado de procesamiento ──
   const [processing, setProcessing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<ClinicalExtraction | null>(null);
   const [rawText, setRawText] = useState<string>('');
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
 
   // ── Generación de simulación ──
   const [level, setLevel] = useState<SimLevel>('Intermedio');
@@ -165,6 +168,21 @@ export default function HistoriasIAPage() {
     };
   }, [clinicId]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const list = await clinicalDocumentsRepo.listByClinic(clinicId, 12);
+        if (active) setDocuments(list);
+      } catch (err) {
+        console.error('No se pudieron cargar las historias clínicas:', err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [clinicId]);
+
   const selectedPet = useMemo(
     () => pets.find((p) => p.id === selectedPetId),
     [pets, selectedPetId]
@@ -176,6 +194,16 @@ export default function HistoriasIAPage() {
     setExtraction(null);
     setRawText('');
     setActionError(null);
+    setActiveDocumentId(null);
+  }
+
+  async function refreshDocuments() {
+    try {
+      const list = await clinicalDocumentsRepo.listByClinic(clinicId, 12);
+      setDocuments(list);
+    } catch (err) {
+      console.error('No se pudo refrescar la lista de historias:', err);
+    }
   }
 
   // ── 2-5: Subida + procesamiento del archivo ──
@@ -252,6 +280,8 @@ export default function HistoriasIAPage() {
 
       setExtraction(result.extraction ?? null);
       setRawText(result.rawText);
+      setActiveDocumentId(documentId);
+      await refreshDocuments();
       toast({
         title: 'Historia procesada',
         description: 'La extracción con IA está lista para revisión.',
@@ -321,6 +351,8 @@ export default function HistoriasIAPage() {
 
       setExtraction(result.extraction ?? null);
       setRawText(result.rawText);
+      setActiveDocumentId(documentId);
+      await refreshDocuments();
       toast({
         title: 'Dictado procesado',
         description: 'La extracción con IA está lista para revisión.',
@@ -363,7 +395,12 @@ export default function HistoriasIAPage() {
 
     setGenerating(true);
     try {
-      const res = await generateSimulationAction({ clinicalText, level });
+      const res = await generateSimulationAction({
+        clinicalText,
+        level,
+        sourceDocumentId: activeDocumentId ?? undefined,
+        sourcePetId: petId,
+      });
       if (!res.ok || !res.case) {
         toast({
           variant: 'destructive',
@@ -381,7 +418,9 @@ export default function HistoriasIAPage() {
 
       toast({
         title: 'Simulación generada',
-        description: 'El caso se guardó como borrador.',
+        description: res.error
+          ? 'El caso se guardó como borrador usando una generación de respaldo.'
+          : 'El caso se guardó como borrador.',
       });
       router.push(`/simulacion/${caseId}`);
     } catch (err) {
@@ -564,6 +603,47 @@ export default function HistoriasIAPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Historias recientes de la clínica</CardTitle>
+          <CardDescription>
+            Puedes cargar varias historias y reutilizarlas como base para nuevos análisis y simulaciones.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {documents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Aún no hay historias clínicas registradas en esta clínica.
+            </p>
+          ) : (
+            documents.map((doc) => {
+              const linkedPet = doc.petId ? pets.find((pet) => pet.id === doc.petId) : null;
+              return (
+                <div key={doc.id} className="rounded-lg border p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium">{doc.fileName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {linkedPet ? `${linkedPet.name} · ` : 'Sin mascota asociada · '}
+                        {new Date(doc.createdAt).toLocaleString('es-CO')}
+                      </p>
+                    </div>
+                    <Badge variant={doc.processingStatus === 'completed' ? 'default' : 'secondary'}>
+                      {doc.processingStatus}
+                    </Badge>
+                  </div>
+                  {doc.extraction?.summary && (
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {doc.extraction.summary}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Error de procesamiento ── */}
       {actionError && (

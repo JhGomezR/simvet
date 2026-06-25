@@ -7,14 +7,13 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
   updateDoc,
   addDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
   limit as fbLimit,
-  serverTimestamp,
   type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -24,6 +23,21 @@ import type {
   UserProfile,
   Case,
 } from './types';
+
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefined(item)) as T;
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entryValue]) => entryValue !== undefined)
+      .map(([key, entryValue]) => [key, stripUndefined(entryValue)]);
+    return Object.fromEntries(entries) as T;
+  }
+
+  return value;
+}
 
 // ============================================================
 // CASES
@@ -58,19 +72,23 @@ export const casesRepo = {
 
   async create(data: Omit<ClinicalCase, 'id'>): Promise<string> {
     const now = Date.now();
-    const ref = await addDoc(collection(db, 'cases'), {
+    const ref = await addDoc(collection(db, 'cases'), stripUndefined({
       ...data,
       createdAt: now,
       updatedAt: now,
-    });
+    }));
     return ref.id;
   },
 
   async update(caseId: string, data: Partial<ClinicalCase>): Promise<void> {
-    await updateDoc(doc(db, 'cases', caseId), {
+    await updateDoc(doc(db, 'cases', caseId), stripUndefined({
       ...data,
       updatedAt: Date.now(),
-    });
+    }));
+  },
+
+  async remove(caseId: string): Promise<void> {
+    await deleteDoc(doc(db, 'cases', caseId));
   },
 };
 
