@@ -1,15 +1,28 @@
 'use client';
 
-import { useState, useEffect, useMemo, use } from 'react';
+import { useEffect, useMemo, use, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
+  AlertCircle,
+  ArrowLeft,
+  Bug,
+  FileText,
+  FlaskConical,
+  Loader2,
+  PawPrint,
+  Pill,
+  Plus,
+  Stethoscope,
+  Syringe,
+} from 'lucide-react';
+import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -25,39 +38,26 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
 import {
-  petsRepo,
-  ownersRepo,
-  consultationsRepo,
-  vaccinationsRepo,
-  dewormingsRepo,
-  prescriptionsRepo,
-  labExamsRepo,
   clinicalDocumentsRepo,
+  consultationsRepo,
+  dewormingsRepo,
+  labExamsRepo,
+  ownersRepo,
+  petsRepo,
+  prescriptionsRepo,
+  vaccinationsRepo,
 } from '@/lib/repositories.clinical';
 import { ownerFullName } from '@/lib/types';
 import type {
-  Pet,
-  Owner,
-  Consultation,
-  Vaccination,
-  Deworming,
-  Prescription,
-  LabExam,
   ClinicalDocument,
+  Consultation,
+  Deworming,
+  LabExam,
+  Owner,
+  Pet,
+  Prescription,
+  Vaccination,
 } from '@/lib/types';
-import {
-  Loader2,
-  AlertCircle,
-  PawPrint,
-  ArrowLeft,
-  Plus,
-  FileText,
-  Syringe,
-  Bug,
-  Pill,
-  FlaskConical,
-  Stethoscope,
-} from 'lucide-react';
 
 function calcAge(birthDate?: string, approxAge?: string): string {
   if (!birthDate) return approxAge ?? 'Desconocida';
@@ -80,6 +80,142 @@ function calcAge(birthDate?: string, approxAge?: string): string {
 function fmtDate(ms?: number): string {
   if (!ms) return '—';
   return format(new Date(ms), "d 'de' MMM yyyy", { locale: es });
+}
+
+type TimelineItem = {
+  id: string;
+  when: number;
+  type:
+    | 'consulta'
+    | 'vacuna'
+    | 'desparasitacion'
+    | 'formula'
+    | 'laboratorio'
+    | 'documento';
+  title: string;
+  subtitle?: string;
+  summary?: string;
+  badge?: string;
+};
+
+function buildTimelineItems({
+  consultations,
+  vaccinations,
+  dewormings,
+  prescriptions,
+  labExams,
+  documents,
+}: {
+  consultations: Consultation[];
+  vaccinations: Vaccination[];
+  dewormings: Deworming[];
+  prescriptions: Prescription[];
+  labExams: LabExam[];
+  documents: ClinicalDocument[];
+}): TimelineItem[] {
+  const consultationItems: TimelineItem[] = consultations.map((item) => ({
+    id: `consultation-${item.id}`,
+    when: item.date,
+    type: 'consulta',
+    title: item.reason,
+    subtitle: 'Consulta médica',
+    summary: item.diagnosis ?? item.notes ?? item.anamnesis,
+    badge: item.status,
+  }));
+
+  const vaccinationItems: TimelineItem[] = vaccinations.map((item) => ({
+    id: `vaccination-${item.id}`,
+    when: item.appliedDate,
+    type: 'vacuna',
+    title: item.vaccineName,
+    subtitle: 'Vacunación',
+    summary: item.notes ?? item.manufacturer,
+    badge: item.batch,
+  }));
+
+  const dewormingItems: TimelineItem[] = dewormings.map((item) => ({
+    id: `deworming-${item.id}`,
+    when: item.appliedDate,
+    type: 'desparasitacion',
+    title: item.product,
+    subtitle: 'Desparasitación',
+    summary: item.notes,
+    badge: item.type,
+  }));
+
+  const prescriptionItems: TimelineItem[] = prescriptions.map((item) => ({
+    id: `prescription-${item.id}`,
+    when: item.date,
+    type: 'formula',
+    title: 'Fórmula médica',
+    subtitle: item.diagnosis ?? 'Prescripción',
+    summary: item.items.map((entry) => entry.drug).join(', '),
+    badge: `${item.items.length} ítem(s)`,
+  }));
+
+  const labItems: TimelineItem[] = labExams.map((item) => ({
+    id: `lab-${item.id}`,
+    when: item.resultDate ?? item.requestedDate,
+    type: 'laboratorio',
+    title: item.type,
+    subtitle: 'Laboratorio',
+    summary: item.interpretation ?? item.notes,
+    badge: item.status,
+  }));
+
+  const documentItems: TimelineItem[] = documents.map((item) => ({
+    id: `document-${item.id}`,
+    when: item.uploadedAt,
+    type: 'documento',
+    title: item.fileName,
+    subtitle: 'Documento clínico',
+    summary: item.extraction?.summary ?? item.processingError,
+    badge: item.processingStatus,
+  }));
+
+  return [
+    ...consultationItems,
+    ...vaccinationItems,
+    ...dewormingItems,
+    ...prescriptionItems,
+    ...labItems,
+    ...documentItems,
+  ].sort((a, b) => b.when - a.when);
+}
+
+function timelineTone(type: TimelineItem['type']) {
+  switch (type) {
+    case 'consulta':
+      return {
+        icon: <Stethoscope className="h-4 w-4" />,
+        label: 'Consulta',
+      };
+    case 'vacuna':
+      return {
+        icon: <Syringe className="h-4 w-4" />,
+        label: 'Vacuna',
+      };
+    case 'desparasitacion':
+      return {
+        icon: <Bug className="h-4 w-4" />,
+        label: 'Desparasitación',
+      };
+    case 'formula':
+      return {
+        icon: <Pill className="h-4 w-4" />,
+        label: 'Fórmula',
+      };
+    case 'laboratorio':
+      return {
+        icon: <FlaskConical className="h-4 w-4" />,
+        label: 'Laboratorio',
+      };
+    case 'documento':
+      return {
+        icon: <FileText className="h-4 w-4" />,
+        label: 'Documento',
+      };
+  }
 }
 
 export default function PetDetailPage({
@@ -113,18 +249,9 @@ export default function PetDetailPage({
           if (!cancelled) setError('No se encontró la mascota.');
           return;
         }
-        const [
-          ownerData,
-          cons,
-          vacs,
-          dews,
-          pres,
-          labs,
-          docs,
-        ] = await Promise.all([
-          fetchedPet.ownerId
-            ? ownersRepo.getById(fetchedPet.ownerId)
-            : Promise.resolve(null),
+
+        const [ownerData, cons, vacs, dews, pres, labs, docs] = await Promise.all([
+          fetchedPet.ownerId ? ownersRepo.getById(fetchedPet.ownerId) : Promise.resolve(null),
           consultationsRepo.listByPet(petId),
           vaccinationsRepo.listByPet(petId),
           dewormingsRepo.listByPet(petId),
@@ -132,6 +259,7 @@ export default function PetDetailPage({
           labExamsRepo.listByPet(petId),
           clinicalDocumentsRepo.listByPet(petId),
         ]);
+
         if (cancelled) return;
         setPet(fetchedPet);
         setOwner(ownerData);
@@ -142,25 +270,33 @@ export default function PetDetailPage({
         setLabExams(labs);
         setDocuments(docs);
       } catch (err) {
-        if (!cancelled)
+        if (!cancelled) {
           setError(
-            err instanceof Error
-              ? err.message
-              : 'No se pudo cargar la ficha clínica.'
+            err instanceof Error ? err.message : 'No se pudo cargar la historia clínica del paciente.'
           );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
   }, [petId]);
 
-  const age = useMemo(
-    () => calcAge(pet?.birthDate, pet?.approxAge),
-    [pet?.birthDate, pet?.approxAge]
+  const age = useMemo(() => calcAge(pet?.birthDate, pet?.approxAge), [pet?.birthDate, pet?.approxAge]);
+  const timelineItems = useMemo(
+    () =>
+      buildTimelineItems({
+        consultations,
+        vaccinations,
+        dewormings,
+        prescriptions,
+        labExams,
+        documents,
+      }),
+    [consultations, vaccinations, dewormings, prescriptions, labExams, documents]
   );
 
   if (loading) {
@@ -189,11 +325,14 @@ export default function PetDetailPage({
     );
   }
 
-  const createHref = (base: string) =>
-    `${base}?petId=${pet.id}`;
+  const consultationHref = `/clinica/consultas/nueva?petId=${pet.id}`;
+  const preventionHref = `/clinica/prevencion?petId=${pet.id}`;
+  const formulaHref = `/clinica/formulas/nueva?petId=${pet.id}`;
+  const laboratoryHref = `/clinica/laboratorio/nueva?petId=${pet.id}`;
+  const historyHref = `/clinica/historias?petId=${pet.id}`;
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto space-y-6 py-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/clinica/mascotas">
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -217,8 +356,50 @@ export default function PetDetailPage({
         {pet.deceased && <Badge variant="destructive">Fallecido</Badge>}
       </div>
 
-      <Tabs defaultValue="datos" className="w-full">
-        <TabsList className="flex flex-wrap h-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle>Acciones clínicas</CardTitle>
+          <CardDescription>
+            Registra nuevas actuaciones clínicas directamente sobre la historia del paciente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <Button asChild variant="outline">
+            <Link href={consultationHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva consulta
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={preventionHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Prevención
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={formulaHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva fórmula
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={laboratoryHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo examen
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={historyHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Subir historia
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="timeline" className="w-full">
+        <TabsList className="flex h-auto flex-wrap">
+          <TabsTrigger value="timeline">Línea de tiempo</TabsTrigger>
           <TabsTrigger value="datos">Datos</TabsTrigger>
           <TabsTrigger value="consultas">Consultas</TabsTrigger>
           <TabsTrigger value="vacunas">Vacunas</TabsTrigger>
@@ -228,7 +409,53 @@ export default function PetDetailPage({
           <TabsTrigger value="documentos">Documentos</TabsTrigger>
         </TabsList>
 
-        {/* DATOS */}
+        <TabsContent value="timeline">
+          <Card>
+            <CardHeader>
+              <CardTitle>Historia clínica integral</CardTitle>
+              <CardDescription>
+                Línea de tiempo consolidada con consultas, prevención, fórmulas, laboratorio y documentos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {timelineItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+                  <FileText className="h-8 w-8" />
+                  <p>Aún no hay eventos clínicos registrados para este paciente.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {timelineItems.map((item) => {
+                    const tone = timelineTone(item.type);
+                    return (
+                      <div key={item.id} className="rounded-xl border p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              {tone.icon}
+                              <span>{tone.label}</span>
+                              <span>·</span>
+                              <span>{fmtDate(item.when)}</span>
+                            </div>
+                            <h3 className="font-medium">{item.title}</h3>
+                            {item.subtitle && (
+                              <p className="text-sm text-muted-foreground">{item.subtitle}</p>
+                            )}
+                            {item.summary && (
+                              <p className="text-sm text-foreground/80">{item.summary}</p>
+                            )}
+                          </div>
+                          {item.badge && <Badge variant="secondary">{item.badge}</Badge>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="datos">
           <Card>
             <CardHeader>
@@ -245,31 +472,20 @@ export default function PetDetailPage({
                   label="Fecha de nacimiento"
                   value={
                     pet.birthDate
-                      ? format(new Date(pet.birthDate), "d 'de' MMMM yyyy", {
-                          locale: es,
-                        })
+                      ? format(new Date(pet.birthDate), "d 'de' MMMM yyyy", { locale: es })
                       : undefined
                   }
                 />
-                <Field
-                  label="Peso"
-                  value={pet.weightKg != null ? `${pet.weightKg} kg` : undefined}
-                />
+                <Field label="Peso" value={pet.weightKg != null ? `${pet.weightKg} kg` : undefined} />
                 <Field label="Color" value={pet.color} />
                 <Field label="Microchip" value={pet.microchip} />
-                <Field
-                  label="Esterilizado/a"
-                  value={pet.sterilized ? 'Sí' : 'No'}
-                />
+                <Field label="Esterilizado/a" value={pet.sterilized ? 'Sí' : 'No'} />
                 <Field label="Tipo de sangre" value={pet.bloodType} />
               </dl>
               <Separator />
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Alergias" value={pet.allergies} />
-                <Field
-                  label="Condiciones crónicas"
-                  value={pet.chronicConditions}
-                />
+                <Field label="Condiciones crónicas" value={pet.chronicConditions} />
                 <Field label="Notas" value={pet.notes} />
               </div>
               <Separator />
@@ -284,22 +500,19 @@ export default function PetDetailPage({
                     <Field label="Ciudad" value={owner.city} />
                   </dl>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Sin dueño asociado.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Sin dueño asociado.</p>
                 )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* CONSULTAS */}
         <TabsContent value="consultas">
           <SectionCard
             title="Consultas médicas"
             description="Historial de consultas del paciente."
             createLabel="Nueva consulta"
-            createHref={createHref('/clinica/consultas/nueva')}
+            createHref={consultationHref}
             empty={consultations.length === 0}
             emptyIcon={<Stethoscope className="h-8 w-8" />}
             emptyText="No hay consultas registradas."
@@ -314,13 +527,13 @@ export default function PetDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {consultations.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>{fmtDate(c.date)}</TableCell>
-                    <TableCell>{c.reason}</TableCell>
-                    <TableCell>{c.diagnosis ?? '—'}</TableCell>
+                {consultations.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{fmtDate(item.date)}</TableCell>
+                    <TableCell>{item.reason}</TableCell>
+                    <TableCell>{item.diagnosis ?? '—'}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{c.status}</Badge>
+                      <Badge variant="secondary">{item.status}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -329,13 +542,12 @@ export default function PetDetailPage({
           </SectionCard>
         </TabsContent>
 
-        {/* VACUNAS */}
         <TabsContent value="vacunas">
           <SectionCard
             title="Vacunación"
             description="Vacunas aplicadas y refuerzos."
-            createLabel="Nueva vacuna"
-            createHref={createHref('/clinica/vacunas/nueva')}
+            createLabel="Abrir prevención"
+            createHref={preventionHref}
             empty={vaccinations.length === 0}
             emptyIcon={<Syringe className="h-8 w-8" />}
             emptyText="No hay vacunas registradas."
@@ -350,14 +562,12 @@ export default function PetDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vaccinations.map((v) => (
-                  <TableRow key={v.id}>
-                    <TableCell className="font-medium">
-                      {v.vaccineName}
-                    </TableCell>
-                    <TableCell>{fmtDate(v.appliedDate)}</TableCell>
-                    <TableCell>{fmtDate(v.nextDueDate)}</TableCell>
-                    <TableCell>{v.batch ?? '—'}</TableCell>
+                {vaccinations.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.vaccineName}</TableCell>
+                    <TableCell>{fmtDate(item.appliedDate)}</TableCell>
+                    <TableCell>{fmtDate(item.nextDueDate)}</TableCell>
+                    <TableCell>{item.batch ?? '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -365,13 +575,12 @@ export default function PetDetailPage({
           </SectionCard>
         </TabsContent>
 
-        {/* DESPARASITACIÓN */}
         <TabsContent value="desparasitacion">
           <SectionCard
             title="Desparasitación"
             description="Productos antiparasitarios aplicados."
-            createLabel="Nueva desparasitación"
-            createHref={createHref('/clinica/desparasitacion/nueva')}
+            createLabel="Abrir prevención"
+            createHref={preventionHref}
             empty={dewormings.length === 0}
             emptyIcon={<Bug className="h-8 w-8" />}
             emptyText="No hay desparasitaciones registradas."
@@ -386,14 +595,14 @@ export default function PetDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dewormings.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">{d.product}</TableCell>
+                {dewormings.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.product}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{d.type}</Badge>
+                      <Badge variant="secondary">{item.type}</Badge>
                     </TableCell>
-                    <TableCell>{fmtDate(d.appliedDate)}</TableCell>
-                    <TableCell>{fmtDate(d.nextDueDate)}</TableCell>
+                    <TableCell>{fmtDate(item.appliedDate)}</TableCell>
+                    <TableCell>{fmtDate(item.nextDueDate)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -401,13 +610,12 @@ export default function PetDetailPage({
           </SectionCard>
         </TabsContent>
 
-        {/* FÓRMULAS */}
         <TabsContent value="formulas">
           <SectionCard
             title="Fórmulas médicas"
             description="Recetas y prescripciones."
             createLabel="Nueva fórmula"
-            createHref={createHref('/clinica/formulas/nueva')}
+            createHref={formulaHref}
             empty={prescriptions.length === 0}
             emptyIcon={<Pill className="h-8 w-8" />}
             emptyText="No hay fórmulas registradas."
@@ -421,13 +629,11 @@ export default function PetDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {prescriptions.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{fmtDate(p.date)}</TableCell>
-                    <TableCell>
-                      {p.items.map((it) => it.drug).join(', ') || '—'}
-                    </TableCell>
-                    <TableCell>{p.diagnosis ?? '—'}</TableCell>
+                {prescriptions.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{fmtDate(item.date)}</TableCell>
+                    <TableCell>{item.items.map((entry) => entry.drug).join(', ') || '—'}</TableCell>
+                    <TableCell>{item.diagnosis ?? '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -435,13 +641,12 @@ export default function PetDetailPage({
           </SectionCard>
         </TabsContent>
 
-        {/* LABORATORIO */}
         <TabsContent value="laboratorio">
           <SectionCard
             title="Laboratorio"
             description="Exámenes de laboratorio solicitados."
             createLabel="Nuevo examen"
-            createHref={createHref('/clinica/laboratorio/nuevo')}
+            createHref={laboratoryHref}
             empty={labExams.length === 0}
             emptyIcon={<FlaskConical className="h-8 w-8" />}
             emptyText="No hay exámenes registrados."
@@ -456,13 +661,13 @@ export default function PetDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {labExams.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="font-medium">{l.type}</TableCell>
-                    <TableCell>{fmtDate(l.requestedDate)}</TableCell>
-                    <TableCell>{fmtDate(l.resultDate)}</TableCell>
+                {labExams.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.type}</TableCell>
+                    <TableCell>{fmtDate(item.requestedDate)}</TableCell>
+                    <TableCell>{fmtDate(item.resultDate)}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{l.status}</Badge>
+                      <Badge variant="secondary">{item.status}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -471,13 +676,12 @@ export default function PetDetailPage({
           </SectionCard>
         </TabsContent>
 
-        {/* DOCUMENTOS */}
         <TabsContent value="documentos">
           <SectionCard
             title="Documentos clínicos"
             description="Archivos e historias adjuntas."
             createLabel="Subir documento"
-            createHref={createHref('/clinica/documentos/nuevo')}
+            createHref={historyHref}
             empty={documents.length === 0}
             emptyIcon={<FileText className="h-8 w-8" />}
             emptyText="No hay documentos registrados."
@@ -492,15 +696,15 @@ export default function PetDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {documents.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">{d.fileName}</TableCell>
+                {documents.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.fileName}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{d.fileType}</Badge>
+                      <Badge variant="secondary">{item.fileType}</Badge>
                     </TableCell>
-                    <TableCell>{fmtDate(d.uploadedAt)}</TableCell>
+                    <TableCell>{fmtDate(item.uploadedAt)}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{d.processingStatus}</Badge>
+                      <Badge variant="secondary">{item.processingStatus}</Badge>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -516,9 +720,7 @@ export default function PetDetailPage({
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
+      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="text-sm">{value ? value : '—'}</dd>
     </div>
   );

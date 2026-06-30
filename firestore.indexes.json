@@ -90,11 +90,27 @@
       ]
     },
     {
+      "collectionGroup": "vaccinations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clinicId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "dewormings",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "petId", "order": "ASCENDING" },
         { "fieldPath": "appliedDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dewormings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clinicId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
@@ -106,11 +122,27 @@
       ]
     },
     {
+      "collectionGroup": "prescriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clinicId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "labExams",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "petId", "order": "ASCENDING" },
         { "fieldPath": "requestedDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "labExams",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clinicId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
