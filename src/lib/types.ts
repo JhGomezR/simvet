@@ -491,7 +491,7 @@ export type LabExam = {
 
 // ── Documento clínico adjunto / historia subida (con IA) ────
 export type ClinicalFileType = 'pdf' | 'image' | 'docx' | 'txt' | 'other';
-export type DocProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type DocProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'queued_ai';
 
 /** Extracción estructurada producida por la IA a partir del documento. */
 export type ClinicalExtraction = {

@@ -37,6 +37,7 @@ export interface ProcessDocumentResult {
   chunkCount: number;
   vectorized: boolean;
   error?: string;
+  queuedForAi?: boolean;
 }
 
 function isQuotaError(err: unknown): boolean {
@@ -135,7 +136,7 @@ export async function processDocumentAction(
               {
                 extractedText: '',
                 extraction,
-                processingStatus: 'completed',
+                processingStatus: 'queued_ai',
                 processingError:
                   'Extraccion automatica no disponible por cuota agotada de Gemini. Se requiere revision manual.',
                 updatedAt: Date.now(),
@@ -150,6 +151,7 @@ export async function processDocumentAction(
             extraction,
             chunkCount: 0,
             vectorized: false,
+            queuedForAi: true,
             error:
               'La historia se guardo, pero la extraccion automatica quedo en modo manual porque la cuota de Gemini esta agotada.',
           };
@@ -163,11 +165,13 @@ export async function processDocumentAction(
 
     // 2. Estructurar con IA
     let extraction: ClinicalExtraction;
+    let queuedForAi = false;
     try {
       extraction = (await extractClinicalData({ rawText })) as ClinicalExtraction;
     } catch (err) {
       console.warn('[process-document] Falling back to heuristic extraction:', err);
       extraction = summarizeFallback(rawText);
+      queuedForAi = isQuotaError(err);
     }
 
     // 3. Chunking + embeddings + Vector Search (Admin SDK)
@@ -203,15 +207,27 @@ export async function processDocumentAction(
         {
           extractedText: rawText.slice(0, 50000),
           extraction,
-          processingStatus: 'completed',
-          processingError: null,
+          processingStatus: queuedForAi ? 'queued_ai' : 'completed',
+          processingError: queuedForAi
+            ? 'La extraccion estructurada y los embeddings quedaron pendientes por cuota agotada de Gemini.'
+            : null,
           updatedAt: Date.now(),
         },
         { merge: true }
       );
     }
 
-    return { ok: true, rawText, extraction, chunkCount, vectorized };
+    return {
+      ok: true,
+      rawText,
+      extraction,
+      chunkCount,
+      vectorized,
+      queuedForAi,
+      error: queuedForAi
+        ? 'La historia quedo en cola para completar extraccion IA y embeddings cuando Gemini vuelva a estar disponible.'
+        : undefined,
+    };
   } catch (err) {
     console.error('[process-document] Error:', err);
     const adminDb = getAdminDb();

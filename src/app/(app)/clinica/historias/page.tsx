@@ -24,6 +24,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Stethoscope,
+  RefreshCcw,
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -93,6 +94,20 @@ function readAsDataUri(file: File): Promise<string> {
   });
 }
 
+async function blobUrlToDataUri(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('No se pudo descargar el archivo para reprocesarlo.');
+  }
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // ── Render de listas de la extracción ──────────────────────────
 function ExtractionList({ title, items }: { title: string; items?: string[] }) {
   if (!items || items.length === 0) return null;
@@ -148,6 +163,10 @@ function buildManualBaseText(extraction?: ClinicalExtraction | null, rawText?: s
   );
 }
 
+function canRetryWithAi(doc: ClinicalDocument) {
+  return doc.processingStatus === 'queued_ai';
+}
+
 export default function HistoriasIAPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -168,6 +187,7 @@ export default function HistoriasIAPage() {
   const [rawText, setRawText] = useState<string>('');
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
   const [manualClinicalText, setManualClinicalText] = useState('');
+  const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
 
   // ── Generación de simulación ──
   const [level, setLevel] = useState<SimLevel>('Intermedio');
@@ -247,6 +267,66 @@ export default function HistoriasIAPage() {
       setDocuments(list);
     } catch (err) {
       console.error('No se pudo refrescar la lista de historias:', err);
+    }
+  }
+
+  async function handleRetryWithAi(doc: ClinicalDocument) {
+    setRetryingDocumentId(doc.id);
+    setActionError(null);
+    try {
+      await clinicalDocumentsRepo.update(doc.id, {
+        processingStatus: 'processing',
+        processingError: undefined,
+      });
+      await refreshDocuments();
+
+      const result =
+        doc.source === 'dictation'
+          ? await processDocumentAction({
+              documentId: doc.id,
+              clinicId: doc.clinicId,
+              petId: doc.petId,
+              fileType: doc.fileType,
+              rawText: doc.extractedText || buildClinicalTextFromDocument(doc),
+            })
+          : await processDocumentAction({
+              documentId: doc.id,
+              clinicId: doc.clinicId,
+              petId: doc.petId,
+              fileType: doc.fileType,
+              dataUri: await blobUrlToDataUri(doc.storageUrl),
+            });
+
+      if (!result.ok) {
+        setActionError(result.error ?? 'No se pudo reprocesar la historia.');
+        toast({
+          variant: 'destructive',
+          title: 'No se pudo reprocesar con IA',
+          description: result.error ?? 'Intenta nuevamente.',
+        });
+        return;
+      }
+
+      setExtraction(result.extraction ?? null);
+      setRawText(result.rawText);
+      setManualClinicalText(buildManualBaseText(result.extraction, result.rawText));
+      setActiveDocumentId(doc.id);
+      await refreshDocuments();
+      toast({
+        title: result.queuedForAi ? 'Sigue en cola de IA' : 'Historia reprocesada con IA',
+        description:
+          result.error ?? 'La historia actualizo su extraccion y sus embeddings con Gemini.',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo reprocesar la historia.';
+      setActionError(msg);
+      toast({
+        variant: 'destructive',
+        title: 'Error al reprocesar',
+        description: msg,
+      });
+    } finally {
+      setRetryingDocumentId(null);
     }
   }
 
@@ -688,7 +768,10 @@ export default function HistoriasIAPage() {
                       {doc.extraction.summary}
                     </p>
                   )}
-                  <div className="mt-3">
+                  {doc.processingError && (
+                    <p className="mt-2 text-xs text-amber-700">{doc.processingError}</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -697,6 +780,22 @@ export default function HistoriasIAPage() {
                     >
                       Usar como base de simulación
                     </Button>
+                    {canRetryWithAi(doc) && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={retryingDocumentId === doc.id}
+                        onClick={() => void handleRetryWithAi(doc)}
+                      >
+                        {retryingDocumentId === doc.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="mr-2 h-4 w-4" />
+                        )}
+                        Reprocesar con IA
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
