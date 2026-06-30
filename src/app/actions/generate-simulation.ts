@@ -10,6 +10,8 @@ import {
   generateSimulationFromHistory,
   type GenerateSimulationInput,
 } from '@/ai/flows/generate-simulation-from-history';
+import { getAdminDb } from '@/lib/firebase-admin';
+import type { ClinicalDocument, ClinicalExtraction } from '@/lib/types';
 import type { ClinicalCase } from '@/lib/types';
 
 export interface GenerateSimulationResponse {
@@ -18,13 +20,19 @@ export interface GenerateSimulationResponse {
   error?: string;
 }
 
+type GenerateSimulationActionInput = GenerateSimulationInput & {
+  sourceDocumentId?: string;
+  sourcePetId?: string;
+  clinicId?: string;
+};
+
 function isQuotaError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err ?? '');
   return /RESOURCE_EXHAUSTED|429|Too Many Requests|prepayment credits are depleted/i.test(message);
 }
 
 function buildFallbackCase(
-  input: GenerateSimulationInput & { sourceDocumentId?: string; sourcePetId?: string }
+  input: GenerateSimulationActionInput
 ): Omit<ClinicalCase, 'id' | 'authorUid' | 'status'> {
   const preview = input.clinicalText.replace(/\s+/g, ' ').trim();
   const description =
@@ -109,13 +117,92 @@ function buildFallbackCase(
   };
 }
 
+function sanitizeSensitiveText(text: string): string {
+  return text
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo-redactado]')
+    .replace(/(\+?\d[\d\s().-]{7,}\d)/g, '[telefono-redactado]')
+    .replace(/\b\d{6,}\b/g, '[identificador-redactado]')
+    .replace(/\b(calle|cra|carrera|av|avenida|direccion|dir)\b[^\n,.]*/gi, '[direccion-redactada]')
+    .replace(/\b(microchip|chip|cedula|cc|documento|nit)\b\s*[:#-]?\s*[a-z0-9-]+/gi, '[identificador-redactado]')
+    .trim();
+}
+
+function extractionToKnowledgeBlock(docId: string, extraction?: ClinicalExtraction, extractedText?: string): string {
+  const parts = [
+    extraction?.species ? `Especie: ${extraction.species}` : '',
+    extraction?.breed ? `Raza: ${extraction.breed}` : '',
+    extraction?.age ? `Edad: ${extraction.age}` : '',
+    extraction?.sex ? `Sexo: ${extraction.sex}` : '',
+    extraction?.weight ? `Peso: ${extraction.weight}` : '',
+    extraction?.symptoms?.length ? `Sintomas: ${extraction.symptoms.join(', ')}` : '',
+    extraction?.antecedents?.length ? `Antecedentes: ${extraction.antecedents.join(', ')}` : '',
+    extraction?.diagnosis?.length ? `Diagnosticos: ${extraction.diagnosis.join(', ')}` : '',
+    extraction?.treatment?.length ? `Tratamientos: ${extraction.treatment.join(', ')}` : '',
+    extraction?.medications?.length ? `Medicamentos: ${extraction.medications.join(', ')}` : '',
+    extraction?.evolution ? `Evolucion: ${extraction.evolution}` : '',
+    extraction?.summary ? `Resumen: ${extraction.summary}` : extractedText?.slice(0, 700) ?? '',
+  ]
+    .filter(Boolean)
+    .join('. ');
+
+  if (!parts.trim()) return '';
+  return `Historia ${docId}: ${sanitizeSensitiveText(parts)}`;
+}
+
+function isUsableKnowledgeDoc(doc: Partial<ClinicalDocument>): boolean {
+  const summary = doc.extraction?.summary?.toLowerCase() ?? '';
+  const hasQuotaPlaceholder =
+    summary.includes('cuota de gemini esta agotada') ||
+    summary.includes('extraccion automatica no pudo completarse');
+  const hasClinicalContent = Boolean(
+    doc.extractedText?.trim() ||
+      doc.extraction?.symptoms?.length ||
+      doc.extraction?.diagnosis?.length ||
+      doc.extraction?.treatment?.length ||
+      (doc.extraction?.summary && !hasQuotaPlaceholder)
+  );
+
+  return hasClinicalContent && (doc.processingStatus === 'completed' || doc.processingStatus === 'queued_ai');
+}
+
+async function buildClinicKnowledgeBaseContext(input: GenerateSimulationActionInput): Promise<string | undefined> {
+  if (!input.clinicId) return undefined;
+  const adminDb = getAdminDb();
+  if (!adminDb) return undefined;
+
+  const snap = await adminDb.collection('clinicalDocuments').where('clinicId', '==', input.clinicId).limit(30).get();
+
+  const docs = snap.docs
+    .map((docSnap) => ({
+      id: docSnap.id,
+      ...(docSnap.data() as Partial<ClinicalDocument>),
+    }))
+    .filter((doc) => doc.id !== input.sourceDocumentId)
+    .filter((doc) => isUsableKnowledgeDoc(doc))
+    .sort((a, b) => (b.uploadedAt ?? 0) - (a.uploadedAt ?? 0))
+    .slice(0, 12);
+
+  const blocks = docs
+    .map((doc) => extractionToKnowledgeBlock(doc.id, doc.extraction, doc.extractedText))
+    .filter(Boolean);
+
+  if (blocks.length === 0) return undefined;
+
+  return [
+    'Patrones clinicos anonimizados obtenidos de historias previas de la clinica.',
+    ...blocks,
+  ].join('\n');
+}
+
 export async function generateSimulationAction(
-  input: GenerateSimulationInput & { sourceDocumentId?: string; sourcePetId?: string }
+  input: GenerateSimulationActionInput
 ): Promise<GenerateSimulationResponse> {
   try {
+    const knowledgeBaseContext = await buildClinicKnowledgeBaseContext(input);
     const g = await generateSimulationFromHistory({
       clinicalText: input.clinicalText,
       level: input.level,
+      knowledgeBaseContext,
     });
 
     const mapped: Omit<ClinicalCase, 'id' | 'authorUid' | 'status'> = {

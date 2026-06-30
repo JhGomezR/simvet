@@ -525,6 +525,7 @@ export default function HistoriasIAPage() {
       const res = await generateSimulationAction({
         clinicalText,
         level,
+        clinicId,
         sourceDocumentId: activeDocumentId ?? undefined,
         sourcePetId: petId,
       });
