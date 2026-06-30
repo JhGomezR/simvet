@@ -133,6 +133,21 @@ function buildClinicalTextFromDocument(doc: ClinicalDocument): string {
   );
 }
 
+function buildManualBaseText(extraction?: ClinicalExtraction | null, rawText?: string) {
+  return (
+    rawText?.trim() ||
+    extraction?.summary?.trim() ||
+    [
+      extraction?.symptoms?.join(', '),
+      extraction?.diagnosis?.join(', '),
+      extraction?.treatment?.join(', '),
+      extraction?.evolution,
+    ]
+      .filter(Boolean)
+      .join('. ')
+  );
+}
+
 export default function HistoriasIAPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -309,12 +324,12 @@ export default function HistoriasIAPage() {
 
       setExtraction(result.extraction ?? null);
       setRawText(result.rawText);
-      setManualClinicalText(result.rawText);
+      setManualClinicalText(buildManualBaseText(result.extraction, result.rawText));
       setActiveDocumentId(documentId);
       await refreshDocuments();
       toast({
-        title: 'Historia procesada',
-        description: 'La extracción con IA está lista para revisión.',
+        title: result.error ? 'Historia guardada en modo manual' : 'Historia procesada',
+        description: result.error ?? 'La extracción con IA está lista para revisión.',
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al subir o procesar el archivo.';
@@ -381,12 +396,12 @@ export default function HistoriasIAPage() {
 
       setExtraction(result.extraction ?? null);
       setRawText(result.rawText);
-      setManualClinicalText(result.rawText);
+      setManualClinicalText(buildManualBaseText(result.extraction, result.rawText));
       setActiveDocumentId(documentId);
       await refreshDocuments();
       toast({
-        title: 'Dictado procesado',
-        description: 'La extracción con IA está lista para revisión.',
+        title: result.error ? 'Dictado guardado en modo manual' : 'Dictado procesado',
+        description: result.error ?? 'La extracción con IA está lista para revisión.',
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al procesar el dictado.';

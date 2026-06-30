@@ -39,6 +39,11 @@ export interface ProcessDocumentResult {
   error?: string;
 }
 
+function isQuotaError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  return /RESOURCE_EXHAUSTED|429|Too Many Requests|prepayment credits are depleted/i.test(message);
+}
+
 function summarizeFallback(rawText: string): ClinicalExtraction {
   const normalized = rawText.replace(/\r/g, '').trim();
   const lines = normalized
@@ -62,6 +67,20 @@ function summarizeFallback(rawText: string): ClinicalExtraction {
     treatment: treatmentHints.length > 0 ? treatmentHints : undefined,
     summary,
     missingFields: ['Validar extracción manualmente'],
+  };
+}
+
+function buildManualReviewFallback(fileType: ClinicalFileType): ClinicalExtraction {
+  return {
+    summary:
+      `El archivo ${fileType.toUpperCase()} se guardo, pero la extraccion automatica no pudo completarse ` +
+      'porque la cuota de Gemini esta agotada. Completa el resumen clinico manualmente para usarlo en simulaciones.',
+    missingFields: [
+      'Resumen clinico manual',
+      'Sintomas principales',
+      'Diagnostico',
+      'Tratamiento',
+    ],
   };
 }
 
@@ -104,7 +123,37 @@ export async function processDocumentAction(
         const base64 = params.dataUri.split(',')[1] ?? '';
         rawText = Buffer.from(base64, 'base64').toString('utf-8');
       } else {
-        rawText = await ocrFromFile(params.dataUri, params.contentType);
+        try {
+          rawText = await ocrFromFile(params.dataUri, params.contentType);
+        } catch (err) {
+          if (!isQuotaError(err)) throw err;
+
+          const extraction = buildManualReviewFallback(params.fileType);
+          const adminDb = getAdminDb();
+          if (adminDb) {
+            await adminDb.collection('clinicalDocuments').doc(params.documentId).set(
+              {
+                extractedText: '',
+                extraction,
+                processingStatus: 'completed',
+                processingError:
+                  'Extraccion automatica no disponible por cuota agotada de Gemini. Se requiere revision manual.',
+                updatedAt: Date.now(),
+              },
+              { merge: true }
+            );
+          }
+
+          return {
+            ok: true,
+            rawText: '',
+            extraction,
+            chunkCount: 0,
+            vectorized: false,
+            error:
+              'La historia se guardo, pero la extraccion automatica quedo en modo manual porque la cuota de Gemini esta agotada.',
+          };
+        }
       }
     }
 
@@ -155,6 +204,7 @@ export async function processDocumentAction(
           extractedText: rawText.slice(0, 50000),
           extraction,
           processingStatus: 'completed',
+          processingError: null,
           updatedAt: Date.now(),
         },
         { merge: true }
