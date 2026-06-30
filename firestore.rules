@@ -43,6 +43,10 @@ service cloud.firestore {
       return isProfessor() || isAdmin();
     }
 
+    function canCreateAttempts() {
+      return isSignedIn() && myRole() in ['student', 'professor', 'admin'];
+    }
+
     // Roles clínicos (SimVet Clinical): acceso a datos REALES de pacientes.
     function isClinicalStaff() {
       return isSignedIn() && myRole() in ['admin', 'veterinarian', 'assistant', 'professor'];
@@ -114,7 +118,7 @@ service cloud.firestore {
         resource.data.studentUid == request.auth.uid
         || isProfessorOrAdmin()
       );
-      allow create: if isStudent()
+      allow create: if canCreateAttempts()
         && request.resource.data.studentUid == request.auth.uid;
       allow update: if isSignedIn()
         && resource.data.studentUid == request.auth.uid;

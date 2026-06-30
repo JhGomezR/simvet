@@ -105,10 +105,18 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         attemptIdRef.current = id;
       } catch (err) {
         console.error('No se pudo crear el intento:', err);
+        toast({
+          variant: 'destructive',
+          title: 'No se pudo iniciar el historial de la simulación',
+          description:
+            err instanceof Error
+              ? err.message
+              : 'Revisa permisos de Firestore para intentos y vuelve a intentarlo.',
+        });
       }
     };
     void createAttempt();
-  }, [user, clinicalCase.id]);
+  }, [user, clinicalCase.id, toast]);
 
   const updatePatientStatus = useCallback(
     (vitals: Vitals) => {
