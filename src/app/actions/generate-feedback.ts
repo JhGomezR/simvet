@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * Server Action — invoca el flujo Genkit de feedback personalizado.
+ * Server Action - invoca el flujo Genkit de feedback personalizado.
  *
- * IMPORTANTE: esta función corre SOLO en el servidor.
+ * IMPORTANTE: esta funcion corre solo en el servidor.
  * La GEMINI_API_KEY nunca se expone al cliente.
  */
 import { generatePersonalizedCaseFeedback } from '@/ai/flows/generate-personalized-case-feedback';
@@ -16,11 +16,15 @@ export interface GenerateFeedbackParams {
   correctDecisions: string[];
   idealClinicalPathway: string;
   finalScore: number;
-  // Evaluación detallada (SimVet Clinical)
   correctDiagnosis?: string;
   studentDiagnosis?: string;
   studentAnswers?: { question: string; answer: string }[];
   activitySummary?: string;
+}
+
+function isQuotaError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  return /RESOURCE_EXHAUSTED|429|Too Many Requests|prepayment credits are depleted/i.test(message);
 }
 
 export async function generateFeedbackAction(
@@ -40,7 +44,6 @@ export async function generateFeedbackAction(
       activitySummary: params.activitySummary,
     });
 
-    // Mapeo del output del flow al tipo Feedback de la app
     return {
       narrativeSummary: result.narrativeSummary,
       criticalErrors: result.criticalErrorsFeedback,
@@ -55,19 +58,21 @@ export async function generateFeedbackAction(
     };
   } catch (err) {
     console.error('Error generando feedback con Gemini:', err);
-    // Fallback: devolvemos un feedback genérico para no romper la UX
     return {
-      narrativeSummary:
-        'No fue posible generar el feedback personalizado en este momento. ' +
-        'Revisa tu desempeño con tu profesor.',
+      narrativeSummary: isQuotaError(err)
+        ? 'El feedback IA no estuvo disponible porque la cuota de Gemini esta agotada. Tu intento quedo guardado.'
+        : 'No fue posible generar el feedback personalizado en este momento. Revisa tu desempeno con tu profesor.',
       criticalErrors: [],
       correctDecisions: [],
       academicRecommendations: [
-        'Vuelve a intentar el caso para recibir feedback automatizado.',
+        isQuotaError(err)
+          ? 'Recarga saldo en Gemini o vuelve a intentar mas tarde para obtener feedback automatizado.'
+          : 'Vuelve a intentar el caso para recibir feedback automatizado.',
         'Si el problema persiste, contacta al administrador del sistema.',
       ],
-      comparisonWithIdealPathway:
-        'El servicio de retroalimentación no respondió. Tu intento fue guardado.',
+      comparisonWithIdealPathway: isQuotaError(err)
+        ? 'La evaluacion automatica no pudo completarse por cuota agotada de Gemini. Tu intento fue guardado.'
+        : 'El servicio de retroalimentacion no respondio. Tu intento fue guardado.',
       finalScore: params.finalScore,
     };
   }

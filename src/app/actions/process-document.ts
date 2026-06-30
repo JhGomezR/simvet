@@ -239,7 +239,11 @@ export async function processDocumentAction(
       rawText: '',
       chunkCount: 0,
       vectorized: false,
-      error: err instanceof Error ? err.message : 'Error desconocido al procesar el documento.',
+      error: isQuotaError(err)
+        ? 'La historia no pudo procesarse con Gemini por falta de cuota. Intenta con texto manual o vuelve a probar cuando haya saldo.'
+        : err instanceof Error
+          ? err.message
+          : 'Error desconocido al procesar el documento.',
     };
   }
 }

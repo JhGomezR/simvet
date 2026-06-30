@@ -18,6 +18,11 @@ export interface GenerateSimulationResponse {
   error?: string;
 }
 
+function isQuotaError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? '');
+  return /RESOURCE_EXHAUSTED|429|Too Many Requests|prepayment credits are depleted/i.test(message);
+}
+
 function buildFallbackCase(
   input: GenerateSimulationInput & { sourceDocumentId?: string; sourcePetId?: string }
 ): Omit<ClinicalCase, 'id' | 'authorUid' | 'status'> {
@@ -180,7 +185,11 @@ export async function generateSimulationAction(
     return {
       ok: true,
       case: buildFallbackCase(input),
-      error: err instanceof Error ? err.message : 'Error generando la simulacion.',
+      error: isQuotaError(err)
+        ? 'La simulacion se genero con una plantilla de respaldo porque la cuota de Gemini esta agotada.'
+        : err instanceof Error
+          ? err.message
+          : 'Error generando la simulacion.',
     };
   }
 }
