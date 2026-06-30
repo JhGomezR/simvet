@@ -36,11 +36,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { AiDisclaimer } from '@/components/clinica/ai-disclaimer';
+import { clinicalDocumentsRepo } from '@/lib/repositories.clinical';
 import {
   semanticSearchAction,
   type SemanticSearchResponse,
 } from '@/app/actions/semantic-search';
-import type { SemanticSearchResult } from '@/lib/types';
+import type { ClinicalDocument, SemanticSearchResult } from '@/lib/types';
 
 const searchFormSchema = z.object({
   query: z
@@ -54,6 +55,63 @@ type SearchFormValues = z.infer<typeof searchFormSchema>;
 function similarityPercent(distance: number): number {
   const sim = (1 - distance) * 100;
   return Math.max(0, Math.min(100, Math.round(sim)));
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 2);
+}
+
+function lexicalScore(queryTokens: string[], candidate: string): number {
+  const haystack = candidate
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return queryTokens.reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+function buildCandidateText(doc: ClinicalDocument): string {
+  return [
+    doc.extractedText,
+    doc.extraction?.summary,
+    doc.extraction?.symptoms?.join(' '),
+    doc.extraction?.diagnosis?.join(' '),
+    doc.extraction?.treatment?.join(' '),
+    doc.extraction?.antecedents?.join(' '),
+    doc.extraction?.evolution,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+async function lexicalFallbackFromClient(
+  clinicId: string,
+  query: string,
+  limit = 5
+): Promise<SemanticSearchResult[]> {
+  const queryTokens = tokenize(query);
+  const documents = await clinicalDocumentsRepo.listByClinic(clinicId, 50);
+
+  return documents
+    .map((doc) => {
+      const candidateText = buildCandidateText(doc);
+      const score = lexicalScore(queryTokens, candidateText);
+      return { doc, candidateText, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => ({
+      documentId: item.doc.id,
+      petId: item.doc.petId,
+      chunkText: item.candidateText.slice(0, 400),
+      distance: Math.max(0, 1 - item.score / Math.max(1, queryTokens.length)),
+      extraction: item.doc.extraction,
+    }));
 }
 
 export default function BusquedaSemanticaPage() {
@@ -82,6 +140,18 @@ export default function BusquedaSemanticaPage() {
       setHasSearched(true);
 
       if (!res.ok) {
+        if (res.error?.includes('credenciales de servidor')) {
+          const fallbackResults = await lexicalFallbackFromClient(clinicId, data.query);
+          setResults(fallbackResults);
+          setErrorMsg(null);
+          if (fallbackResults.length > 0) {
+            toast({
+              title: 'Busqueda de respaldo activa',
+              description: 'Se usaron las historias clinicas ya cargadas en Firestore.',
+            });
+          }
+          return;
+        }
         setResults([]);
         setErrorMsg(
           res.error ??
