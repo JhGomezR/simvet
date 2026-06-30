@@ -118,6 +118,21 @@ function ExtractionField({ title, value }: { title: string; value?: string }) {
   );
 }
 
+function buildClinicalTextFromDocument(doc: ClinicalDocument): string {
+  return (
+    doc.extraction?.summary?.trim() ||
+    [
+      doc.extraction?.symptoms?.join(', '),
+      doc.extraction?.diagnosis?.join(', '),
+      doc.extraction?.treatment?.join(', '),
+      doc.extraction?.evolution,
+      doc.extractedText,
+    ]
+      .filter(Boolean)
+      .join('. ')
+  );
+}
+
 export default function HistoriasIAPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -137,6 +152,7 @@ export default function HistoriasIAPage() {
   const [extraction, setExtraction] = useState<ClinicalExtraction | null>(null);
   const [rawText, setRawText] = useState<string>('');
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  const [manualClinicalText, setManualClinicalText] = useState('');
 
   // ── Generación de simulación ──
   const [level, setLevel] = useState<SimLevel>('Intermedio');
@@ -193,8 +209,21 @@ export default function HistoriasIAPage() {
   function resetResults() {
     setExtraction(null);
     setRawText('');
+    setManualClinicalText('');
     setActionError(null);
     setActiveDocumentId(null);
+  }
+
+  function useDocumentAsBase(doc: ClinicalDocument) {
+    setActiveDocumentId(doc.id);
+    setExtraction(doc.extraction ?? null);
+    setRawText(doc.extractedText ?? '');
+    setManualClinicalText(buildClinicalTextFromDocument(doc));
+    setActionError(null);
+    toast({
+      title: 'Historia seleccionada',
+      description: 'Esta historia quedó como base activa para generar la simulación.',
+    });
   }
 
   async function refreshDocuments() {
@@ -280,6 +309,7 @@ export default function HistoriasIAPage() {
 
       setExtraction(result.extraction ?? null);
       setRawText(result.rawText);
+      setManualClinicalText(result.rawText);
       setActiveDocumentId(documentId);
       await refreshDocuments();
       toast({
@@ -351,6 +381,7 @@ export default function HistoriasIAPage() {
 
       setExtraction(result.extraction ?? null);
       setRawText(result.rawText);
+      setManualClinicalText(result.rawText);
       setActiveDocumentId(documentId);
       await refreshDocuments();
       toast({
@@ -373,6 +404,7 @@ export default function HistoriasIAPage() {
       return;
     }
     const clinicalText =
+      manualClinicalText.trim() ||
       extraction?.summary?.trim() ||
       [
         extraction?.symptoms?.join(', '),
@@ -629,15 +661,28 @@ export default function HistoriasIAPage() {
                         {new Date(doc.createdAt).toLocaleString('es-CO')}
                       </p>
                     </div>
-                    <Badge variant={doc.processingStatus === 'completed' ? 'default' : 'secondary'}>
-                      {doc.processingStatus}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {activeDocumentId === doc.id && <Badge>Base activa</Badge>}
+                      <Badge variant={doc.processingStatus === 'completed' ? 'default' : 'secondary'}>
+                        {doc.processingStatus}
+                      </Badge>
+                    </div>
                   </div>
                   {doc.extraction?.summary && (
                     <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
                       {doc.extraction.summary}
                     </p>
                   )}
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => useDocumentAsBase(doc)}
+                    >
+                      Usar como base de simulación
+                    </Button>
+                  </div>
                 </div>
               );
             })
@@ -706,6 +751,20 @@ export default function HistoriasIAPage() {
                 <CheckCircle2 className="h-4 w-4" /> No se detectaron campos faltantes.
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="manual-clinical-text">Base clínica para la simulación</Label>
+              <Textarea
+                id="manual-clinical-text"
+                value={manualClinicalText}
+                onChange={(e) => setManualClinicalText(e.target.value)}
+                placeholder="Aquí puedes completar o corregir el texto base que usará la simulación cuando la IA no logre interpretar todo el documento."
+                className="min-h-[140px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Este texto se usará como fuente principal para generar la simulación y alimentar el razonamiento del caso.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}
