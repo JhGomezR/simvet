@@ -1281,63 +1281,115 @@ export default function PetDetailPage({
               </div>
             </CardHeader>
             <CardContent>
-              {documents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
-                  <FileText className="h-8 w-8" />
-                  <p>No hay documentos registrados.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {documents.map((item) => (
-                    <div key={item.id} className="rounded-xl border p-4">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <FileText className="h-4 w-4" />
-                            <span>{fmtDate(item.uploadedAt)}</span>
-                          </div>
-                          <h3 className="font-medium">{item.fileName}</h3>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="secondary">{item.fileType}</Badge>
-                            <Badge variant="secondary">{item.processingStatus}</Badge>
-                          </div>
-                          {item.extraction?.summary && (
-                            <p className="text-sm text-foreground/80">{item.extraction.summary}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button type="button" variant="outline" size="sm" onClick={() => {
-                            const current = getTimelineItem('documento', item.id);
-                            if (current) openTimelineItem(current);
-                          }}>
-                            Ver ficha
-                          </Button>
-                          <Button asChild variant="outline" size="sm">
-                            <a href={item.storageUrl} target="_blank" rel="noreferrer">
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver PDF
-                            </a>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => void handleDeleteDocument(item)}
-                            disabled={deletingDocumentId === item.id}
-                            aria-label={`Eliminar ${item.fileName}`}
-                          >
-                            {deletingDocumentId === item.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-medium">Contenido clinico incluido en el PDF</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Este resumen toma la misma informacion de la linea de tiempo y sera la base de la exportacion.
+                    </p>
+                  </div>
+                  {timelineItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border py-8 text-center text-muted-foreground">
+                      <FileText className="h-8 w-8" />
+                      <p>No hay eventos clinicos para exportar.</p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-3">
+                      {timelineItems.map((item) => {
+                        const tone = timelineTone(item.type);
+                        return (
+                          <div key={`document-summary-${item.id}`} className="rounded-xl border p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  {tone.icon}
+                                  <span>{tone.label}</span>
+                                  <span>-</span>
+                                  <span>{fmtDate(item.when)}</span>
+                                </div>
+                                <h4 className="font-medium">{item.title}</h4>
+                                {item.summary && <p className="text-sm text-foreground/80">{item.summary}</p>}
+                              </div>
+                              <Button type="button" variant="outline" size="sm" onClick={() => openTimelineItem(item)}>
+                                Ver ficha
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-medium">Soportes y archivos adjuntos</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Archivos clinicos asociados al paciente que puedes abrir, revisar o eliminar.
+                    </p>
+                  </div>
+                  {documents.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border py-8 text-center text-muted-foreground">
+                      <FileText className="h-8 w-8" />
+                      <p>No hay documentos registrados.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {documents.map((item) => (
+                        <div key={item.id} className="rounded-xl border p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <FileText className="h-4 w-4" />
+                                <span>{fmtDate(item.uploadedAt)}</span>
+                              </div>
+                              <h3 className="font-medium">{item.fileName}</h3>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge variant="secondary">{item.fileType}</Badge>
+                                <Badge variant="secondary">{item.processingStatus}</Badge>
+                              </div>
+                              {item.extraction?.summary && (
+                                <p className="text-sm text-foreground/80">{item.extraction.summary}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button type="button" variant="outline" size="sm" onClick={() => {
+                                const current = getTimelineItem('documento', item.id);
+                                if (current) openTimelineItem(current);
+                              }}>
+                                Ver ficha
+                              </Button>
+                              <Button asChild variant="outline" size="sm">
+                                <a href={item.storageUrl} target="_blank" rel="noreferrer">
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver PDF
+                                </a>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => void handleDeleteDocument(item)}
+                                disabled={deletingDocumentId === item.id}
+                                aria-label={`Eliminar ${item.fileName}`}
+                              >
+                                {deletingDocumentId === item.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
