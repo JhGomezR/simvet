@@ -93,12 +93,12 @@ function calcAge(birthDate?: string, approxAge?: string): string {
 }
 
 function fmtDate(ms?: number): string {
-  if (!ms) return '—';
+  if (!ms) return '-';
   return format(new Date(ms), "d 'de' MMM yyyy", { locale: es });
 }
 
 function fmtDateTime(ms?: number): string {
-  if (!ms) return 'â€”';
+  if (!ms) return '-';
   return format(new Date(ms), "d 'de' MMM yyyy HH:mm", { locale: es });
 }
 
@@ -167,9 +167,9 @@ function buildTimelineItems({
     badge: item.status,
     details: [
       item.anamnesis ? `Anamnesis: ${item.anamnesis}` : '',
-      item.physicalExam ? `Examen fÃ­sico: ${item.physicalExam}` : '',
-      item.differentialDiagnosis ? `DiagnÃ³sticos diferenciales: ${item.differentialDiagnosis}` : '',
-      item.treatmentPlan ? `Plan terapÃ©utico: ${item.treatmentPlan}` : '',
+      item.physicalExam ? `Examen fisico: ${item.physicalExam}` : '',
+      item.differentialDiagnosis ? `Diagnosticos diferenciales: ${item.differentialDiagnosis}` : '',
+      item.treatmentPlan ? `Plan terapeutico: ${item.treatmentPlan}` : '',
       item.notes ? `Notas: ${item.notes}` : '',
     ].filter(Boolean),
   }));
@@ -180,13 +180,13 @@ function buildTimelineItems({
     when: item.appliedDate,
     type: 'vacuna',
     title: item.vaccineName,
-    subtitle: 'Vacunación',
+    subtitle: 'Vacunacion',
     summary: item.notes ?? item.manufacturer,
     badge: item.batch,
     details: [
       item.manufacturer ? `Fabricante: ${item.manufacturer}` : '',
       item.batch ? `Lote: ${item.batch}` : '',
-      item.nextDueDate ? `PrÃ³ximo refuerzo: ${fmtDate(item.nextDueDate)}` : '',
+      item.nextDueDate ? `Proximo refuerzo: ${fmtDate(item.nextDueDate)}` : '',
       item.notes ? `Notas: ${item.notes}` : '',
     ].filter(Boolean),
   }));
@@ -197,13 +197,13 @@ function buildTimelineItems({
     when: item.appliedDate,
     type: 'desparasitacion',
     title: item.product,
-    subtitle: 'Desparasitación',
+    subtitle: 'Desparasitacion',
     summary: item.notes,
     badge: item.type,
     details: [
       `Tipo: ${item.type}`,
       item.weightKg != null ? `Peso registrado: ${item.weightKg} kg` : '',
-      item.nextDueDate ? `PrÃ³xima aplicaciÃ³n: ${fmtDate(item.nextDueDate)}` : '',
+      item.nextDueDate ? `Proxima aplicacion: ${fmtDate(item.nextDueDate)}` : '',
       item.notes ? `Notas: ${item.notes}` : '',
     ].filter(Boolean),
   }));
@@ -623,7 +623,7 @@ export default function PetDetailPage({
 
       toast({
         title: 'Ficha actualizada',
-        description: 'La informaciÃ³n clÃ­nica se guardÃ³ correctamente.',
+        description: 'La informacion clinica se guardo correctamente.',
       });
       setEditingTimeline(false);
       setTimelineDialogOpen(false);
@@ -632,7 +632,7 @@ export default function PetDetailPage({
       toast({
         variant: 'destructive',
         title: 'No se pudo actualizar la ficha',
-        description: err instanceof Error ? err.message : 'Error al guardar la informaciÃ³n.',
+        description: err instanceof Error ? err.message : 'Error al guardar la informacion.',
       });
     } finally {
       setSavingTimeline(false);
@@ -647,7 +647,7 @@ export default function PetDetailPage({
       toast({
         variant: 'destructive',
         title: 'No se pudo exportar el PDF',
-        description: 'Permite ventanas emergentes para generar la historia clÃ­nica en PDF.',
+        description: 'Permite ventanas emergentes para generar la historia clinica en PDF.',
       });
       return;
     }
