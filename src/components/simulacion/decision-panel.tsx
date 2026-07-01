@@ -153,7 +153,7 @@ export function DecisionPanel({
                     </div>
                     {revealedAnamnesis[question.id] && (
                       <p className="mt-2 border-l-2 border-primary pl-3 text-sm italic text-foreground/80">
-                        Dueño: "{revealedAnamnesis[question.id]}"
+                        Dueño: &quot;{revealedAnamnesis[question.id]}&quot;
                       </p>
                     )}
                   </div>

@@ -168,7 +168,7 @@ export default function DashboardPage() {
         <CardContent>
           {history.length === 0 ? (
             <p className="py-4 text-sm text-muted-foreground">
-              Aún no has completado ningún caso. Inicia uno desde "Casos disponibles".
+              Aún no has completado ningún caso. Inicia uno desde &quot;Casos disponibles&quot;.
             </p>
           ) : (
             <CaseHistoryTable cases={history} />

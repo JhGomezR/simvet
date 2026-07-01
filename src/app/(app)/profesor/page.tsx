@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArchiveRestore,
@@ -38,11 +38,7 @@ export default function ProfessorPage() {
   const [loading, setLoading] = useState(true);
   const [busyCaseId, setBusyCaseId] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadProfessorData();
-  }, [user]);
-
-  async function loadProfessorData() {
+  const loadProfessorData = useCallback(async () => {
     if (!user) return;
     try {
       const [cases, attempts] = await Promise.all([
@@ -67,7 +63,11 @@ export default function ProfessorPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  useEffect(() => {
+    void loadProfessorData();
+  }, [loadProfessorData]);
 
   async function handleToggleStatus(clinicalCase: ClinicalCase) {
     setBusyCaseId(clinicalCase.id);
@@ -221,7 +221,7 @@ export default function ProfessorPage() {
           <CardContent>
             {publishedCases.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
-                Aún no tienes casos publicados. Publica uno desde "Mis Casos Clínicos".
+                Aún no tienes casos publicados. Publica uno desde &quot;Mis Casos Clínicos&quot;.
               </p>
             ) : (
               <div className="grid gap-3">

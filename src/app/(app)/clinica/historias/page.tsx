@@ -249,7 +249,7 @@ export default function HistoriasIAPage() {
     setActiveDocumentId(null);
   }
 
-  function useDocumentAsBase(doc: ClinicalDocument) {
+  function selectDocumentAsBase(doc: ClinicalDocument) {
     setActiveDocumentId(doc.id);
     setExtraction(doc.extraction ?? null);
     setRawText(doc.extractedText ?? '');
@@ -777,7 +777,7 @@ export default function HistoriasIAPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => useDocumentAsBase(doc)}
+                      onClick={() => selectDocumentAsBase(doc)}
                     >
                       Usar como base de simulación
                     </Button>
