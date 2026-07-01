@@ -17,6 +17,40 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function myRole() {
+      return userDoc().role;
+    }
+
+    function myRoles() {
+      return 'roles' in userDoc() ? userDoc().roles : [];
+    }
+
+    function hasRole(roleName) {
+      return isSignedIn() && (myRole() == roleName || roleName in myRoles());
+    }
+
+    function isClinicalStaff() {
+      return isSignedIn() && (
+        hasRole('admin') || hasRole('veterinarian') || hasRole('assistant') || hasRole('professor')
+      );
+    }
+
+    function isVetOrAdmin() {
+      return isSignedIn() && (hasRole('admin') || hasRole('veterinarian'));
+    }
+
+    function myClinicId() {
+      return 'clinicId' in userDoc() ? userDoc().clinicId : 'default';
+    }
+
+    function canAccessClinicPath(clinicId) {
+      return isClinicalStaff() && myClinicId() == clinicId;
+    }
+
     function isImage() {
       return request.resource.contentType.matches('image/.*');
     }
@@ -54,8 +88,9 @@ service firebase.storage {
     // Documentos clínicos (historias subidas, resultados de lab, dictados de voz).
     // Lectura para logueados; escritura validando tipo y tamaño (<20MB).
     match /clinical/{clinicId}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isClinicalDoc() && under20MB();
+      allow read: if canAccessClinicPath(clinicId);
+      allow create, update: if canAccessClinicPath(clinicId) && isClinicalDoc() && under20MB();
+      allow delete: if canAccessClinicPath(clinicId) && isVetOrAdmin();
     }
 
     // Recursos públicos (logos, placeholders del sistema)
