@@ -314,15 +314,28 @@ export default function PetDetailPage({
 
     setDeletingDocumentId(doc.id);
     try {
-      const chunks = await documentChunksRepo.listByDocument(doc.id);
-      await Promise.all(chunks.map((chunk) => documentChunksRepo.remove(chunk.id)));
+      let storageCleanupWarning: string | null = null;
 
       if (doc.storagePath) {
-        await deleteObject(ref(storage, doc.storagePath));
+        try {
+          await deleteObject(ref(storage, doc.storagePath));
+        } catch (err) {
+          const code =
+            typeof err === 'object' && err !== null && 'code' in err ? String(err.code) : '';
+          if (code !== 'storage/unauthorized' && code !== 'storage/object-not-found') {
+            throw err;
+          }
+          storageCleanupWarning =
+            'El documento se elimino de SimVet, pero el archivo heredado de Storage requiere limpieza manual.';
+          console.warn('No se pudo eliminar el archivo clinico en Storage:', doc.storagePath, err);
+        }
       }
 
+      const chunks = await documentChunksRepo.listByDocument(doc.id);
+      await Promise.all(chunks.map((chunk) => documentChunksRepo.remove(chunk.id)));
       await clinicalDocumentsRepo.remove(doc.id);
       setDocuments((current) => current.filter((item) => item.id !== doc.id));
+      console.warn(storageCleanupWarning ?? '');
       toast({
         title: 'Documento eliminado',
         description: 'El documento clínico y sus fragmentos asociados fueron eliminados.',

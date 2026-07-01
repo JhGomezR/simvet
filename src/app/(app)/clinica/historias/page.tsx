@@ -311,13 +311,25 @@ export default function HistoriasIAPage() {
     setRetryingDocumentId(doc.id);
     setActionError(null);
     try {
-      const chunks = await documentChunksRepo.listByDocument(doc.id);
-      await Promise.all(chunks.map((chunk) => documentChunksRepo.remove(chunk.id)));
+      let storageCleanupWarning: string | null = null;
 
       if (doc.storagePath) {
-        await deleteObject(ref(storage, doc.storagePath));
+        try {
+          await deleteObject(ref(storage, doc.storagePath));
+        } catch (err) {
+          const code =
+            typeof err === 'object' && err !== null && 'code' in err ? String(err.code) : '';
+          if (code !== 'storage/unauthorized' && code !== 'storage/object-not-found') {
+            throw err;
+          }
+          storageCleanupWarning =
+            'La historia se elimino de SimVet, pero el archivo heredado de Storage requiere limpieza manual.';
+          console.warn('No se pudo eliminar el archivo clinico en Storage:', doc.storagePath, err);
+        }
       }
 
+      const chunks = await documentChunksRepo.listByDocument(doc.id);
+      await Promise.all(chunks.map((chunk) => documentChunksRepo.remove(chunk.id)));
       await clinicalDocumentsRepo.remove(doc.id);
 
       if (activeDocumentId === doc.id) {
@@ -325,6 +337,7 @@ export default function HistoriasIAPage() {
       }
 
       await refreshDocuments();
+      console.warn(storageCleanupWarning ?? '');
       toast({
         title: 'Documento eliminado',
         description: 'La historia clínica y sus fragmentos asociados fueron eliminados.',
