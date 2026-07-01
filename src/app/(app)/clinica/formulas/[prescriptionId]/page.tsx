@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -26,7 +26,6 @@ import {
   petsRepo,
   ownersRepo,
 } from '@/lib/repositories.clinical';
-import { ownerFullName } from '@/lib/types';
 import type { Prescription, Pet, Owner } from '@/lib/types';
 import {
   Loader2,
@@ -34,7 +33,16 @@ import {
   ArrowLeft,
   Printer,
   Pill,
+  Trash2,
 } from 'lucide-react';
+
+function redactSensitiveText(text?: string | number | null) {
+  if (text === undefined || text === null) return undefined;
+  return `${text}`
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo oculto]')
+    .replace(/(\+?\d[\d\s().-]{7,}\d)/g, '[telefono oculto]')
+    .replace(/\b\d{6,}\b/g, '[identificador oculto]');
+}
 
 function Field({ label, value }: { label: string; value?: string | number }) {
   const display =
@@ -51,6 +59,7 @@ function Field({ label, value }: { label: string; value?: string | number }) {
 
 export default function FormulaDetallePage() {
   const params = useParams();
+  const router = useRouter();
   const prescriptionId =
     typeof params.prescriptionId === 'string'
       ? params.prescriptionId
@@ -63,6 +72,19 @@ export default function FormulaDetallePage() {
   const [owner, setOwner] = useState<Owner | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleDeletePrescription() {
+    if (!prescription) return;
+    const confirmed = window.confirm('¿Eliminar este documento de tratamiento?');
+    if (!confirmed) return;
+
+    try {
+      await prescriptionsRepo.remove(prescription.id);
+      router.push('/clinica/formulas');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar la fórmula.');
+    }
+  }
 
   useEffect(() => {
     if (!prescriptionId) return;
@@ -117,10 +139,16 @@ export default function FormulaDetallePage() {
           </Link>
         </Button>
         {prescription && (
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" />
-            Imprimir
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => void handleDeletePrescription()}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar
+            </Button>
+          </div>
         )}
       </div>
 
@@ -159,9 +187,9 @@ export default function FormulaDetallePage() {
               <Field label="Especie" value={pet?.species} />
               <Field
                 label="Propietario"
-                value={owner ? ownerFullName(owner) : undefined}
+                value={owner ? 'Propietario oculto' : undefined}
               />
-              <Field label="Documento" value={owner?.idDocument} />
+              <Field label="Documento" value={redactSensitiveText(owner?.idDocument)} />
             </div>
 
             <Field label="Diagnóstico" value={prescription.diagnosis} />

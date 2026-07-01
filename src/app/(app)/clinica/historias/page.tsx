@@ -25,8 +25,10 @@ import {
   CheckCircle2,
   Stethoscope,
   RefreshCcw,
+  Eye,
+  Trash2,
 } from 'lucide-react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 
 import { Button } from '@/components/ui/button';
@@ -55,7 +57,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useSpeechToText } from '@/hooks/use-speech';
 import { AiDisclaimer } from '@/components/clinica/ai-disclaimer';
 
-import { petsRepo, clinicalDocumentsRepo } from '@/lib/repositories.clinical';
+import { petsRepo, clinicalDocumentsRepo, documentChunksRepo } from '@/lib/repositories.clinical';
 import { casesRepo } from '@/lib/repositories';
 import { processDocumentAction } from '@/app/actions/process-document';
 import { generateSimulationAction } from '@/app/actions/generate-simulation';
@@ -146,6 +148,36 @@ function buildClinicalTextFromDocument(doc: ClinicalDocument): string {
       .filter(Boolean)
       .join('. ')
   );
+}
+
+function redactSensitiveText(text: string): string {
+  return text
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo oculto]')
+    .replace(/(\+?\d[\d\s().-]{7,}\d)/g, '[telefono oculto]')
+    .replace(/\b\d{6,}\b/g, '[identificador oculto]')
+    .replace(/\b(calle|cra|carrera|av|avenida|direccion|dir)\b[^\n,.]*/gi, '[direccion oculta]')
+    .replace(/\b(microchip|chip|cedula|cc|documento|nit)\b\s*[:#-]?\s*[a-z0-9-]+/gi, '[identificador oculto]')
+    .trim();
+}
+
+function sanitizeExtraction(extraction?: ClinicalExtraction | null): ClinicalExtraction | null {
+  if (!extraction) return null;
+  return {
+    ...extraction,
+    patientName: extraction.patientName ? 'Paciente anonimizado' : extraction.patientName,
+    ownerName: extraction.ownerName ? 'Propietario oculto' : extraction.ownerName,
+    age: extraction.age ? redactSensitiveText(extraction.age) : extraction.age,
+    sex: extraction.sex ? redactSensitiveText(extraction.sex) : extraction.sex,
+    weight: extraction.weight ? redactSensitiveText(extraction.weight) : extraction.weight,
+    symptoms: extraction.symptoms?.map(redactSensitiveText),
+    antecedents: extraction.antecedents?.map(redactSensitiveText),
+    diagnosis: extraction.diagnosis?.map(redactSensitiveText),
+    treatment: extraction.treatment?.map(redactSensitiveText),
+    medications: extraction.medications?.map(redactSensitiveText),
+    evolution: extraction.evolution ? redactSensitiveText(extraction.evolution) : extraction.evolution,
+    summary: extraction.summary ? redactSensitiveText(extraction.summary) : extraction.summary,
+    missingFields: extraction.missingFields,
+  };
 }
 
 function buildManualBaseText(extraction?: ClinicalExtraction | null, rawText?: string) {
@@ -250,14 +282,16 @@ export default function HistoriasIAPage() {
   }
 
   function selectDocumentAsBase(doc: ClinicalDocument) {
+    const safeExtraction = sanitizeExtraction(doc.extraction ?? null);
+    const safeRawText = redactSensitiveText(doc.extractedText ?? '');
     setActiveDocumentId(doc.id);
-    setExtraction(doc.extraction ?? null);
-    setRawText(doc.extractedText ?? '');
-    setManualClinicalText(buildClinicalTextFromDocument(doc));
+    setExtraction(safeExtraction);
+    setRawText(safeRawText);
+    setManualClinicalText(redactSensitiveText(buildClinicalTextFromDocument(doc)));
     setActionError(null);
     toast({
       title: 'Historia seleccionada',
-      description: 'Esta historia quedó como base activa para generar la simulación.',
+      description: 'Esta historia quedó como base activa en vista protegida para generar la simulación.',
     });
   }
 
@@ -267,6 +301,44 @@ export default function HistoriasIAPage() {
       setDocuments(list);
     } catch (err) {
       console.error('No se pudo refrescar la lista de historias:', err);
+    }
+  }
+
+  async function handleDeleteDocument(doc: ClinicalDocument) {
+    const confirmed = window.confirm(`¿Eliminar el archivo "${doc.fileName}" y sus fragmentos asociados?`);
+    if (!confirmed) return;
+
+    setRetryingDocumentId(doc.id);
+    setActionError(null);
+    try {
+      const chunks = await documentChunksRepo.listByDocument(doc.id);
+      await Promise.all(chunks.map((chunk) => documentChunksRepo.remove(chunk.id)));
+
+      if (doc.storagePath) {
+        await deleteObject(ref(storage, doc.storagePath));
+      }
+
+      await clinicalDocumentsRepo.remove(doc.id);
+
+      if (activeDocumentId === doc.id) {
+        resetResults();
+      }
+
+      await refreshDocuments();
+      toast({
+        title: 'Documento eliminado',
+        description: 'La historia clínica y sus fragmentos asociados fueron eliminados.',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo eliminar el documento.';
+      setActionError(msg);
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar documento',
+        description: msg,
+      });
+    } finally {
+      setRetryingDocumentId(null);
     }
   }
 
@@ -307,9 +379,9 @@ export default function HistoriasIAPage() {
         return;
       }
 
-      setExtraction(result.extraction ?? null);
-      setRawText(result.rawText);
-      setManualClinicalText(buildManualBaseText(result.extraction, result.rawText));
+      setExtraction(sanitizeExtraction(result.extraction ?? null));
+      setRawText(redactSensitiveText(result.rawText));
+      setManualClinicalText(redactSensitiveText(buildManualBaseText(result.extraction, result.rawText)));
       setActiveDocumentId(doc.id);
       await refreshDocuments();
       toast({
@@ -402,9 +474,9 @@ export default function HistoriasIAPage() {
         return;
       }
 
-      setExtraction(result.extraction ?? null);
-      setRawText(result.rawText);
-      setManualClinicalText(buildManualBaseText(result.extraction, result.rawText));
+      setExtraction(sanitizeExtraction(result.extraction ?? null));
+      setRawText(redactSensitiveText(result.rawText));
+      setManualClinicalText(redactSensitiveText(buildManualBaseText(result.extraction, result.rawText)));
       setActiveDocumentId(documentId);
       await refreshDocuments();
       toast({
@@ -474,9 +546,9 @@ export default function HistoriasIAPage() {
         return;
       }
 
-      setExtraction(result.extraction ?? null);
-      setRawText(result.rawText);
-      setManualClinicalText(buildManualBaseText(result.extraction, result.rawText));
+      setExtraction(sanitizeExtraction(result.extraction ?? null));
+      setRawText(redactSensitiveText(result.rawText));
+      setManualClinicalText(redactSensitiveText(buildManualBaseText(result.extraction, result.rawText)));
       setActiveDocumentId(documentId);
       await refreshDocuments();
       toast({
@@ -779,6 +851,7 @@ export default function HistoriasIAPage() {
                       size="sm"
                       onClick={() => selectDocumentAsBase(doc)}
                     >
+                      <Eye className="mr-2 h-4 w-4" />
                       Usar como base de simulación
                     </Button>
                     {canRetryWithAi(doc) && (
@@ -797,6 +870,20 @@ export default function HistoriasIAPage() {
                         Reprocesar con IA
                       </Button>
                     )}
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={retryingDocumentId === doc.id}
+                      onClick={() => void handleDeleteDocument(doc)}
+                    >
+                      {retryingDocumentId === doc.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" />
+                      )}
+                      Eliminar archivo
+                    </Button>
                   </div>
                 </div>
               );
