@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -102,7 +103,12 @@ type DewormingFormValues = z.infer<typeof dewormingSchema>;
 
 export default function PrevencionPage() {
   const { user, profile } = useAuth();
+  const searchParams = useSearchParams();
   const clinicId = profile?.clinicId ?? 'default';
+  const requestedTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'vacunacion' | 'desparasitacion'>(
+    requestedTab === 'desparasitacion' ? 'desparasitacion' : 'vacunacion'
+  );
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [petsLoading, setPetsLoading] = useState(true);
@@ -110,6 +116,10 @@ export default function PrevencionPage() {
   const [selectedPetId, setSelectedPetId] = useState<string>('');
 
   // Cargar mascotas de la clínica
+  useEffect(() => {
+    setActiveTab(requestedTab === 'desparasitacion' ? 'desparasitacion' : 'vacunacion');
+  }, [requestedTab]);
+
   useEffect(() => {
     let active = true;
     async function load() {
@@ -196,7 +206,7 @@ export default function PrevencionPage() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue="vacunacion" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'vacunacion' | 'desparasitacion')} className="space-y-4">
           <TabsList>
             <TabsTrigger value="vacunacion">
               <Syringe className="mr-2 h-4 w-4" />

@@ -8,6 +8,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Bug,
+  Eye,
   FileText,
   FlaskConical,
   Loader2,
@@ -101,6 +102,8 @@ type TimelineItem = {
   subtitle?: string;
   summary?: string;
   badge?: string;
+  details?: string[];
+  href?: string;
 };
 
 function buildTimelineItems({
@@ -126,6 +129,13 @@ function buildTimelineItems({
     subtitle: 'Consulta médica',
     summary: item.diagnosis ?? item.notes ?? item.anamnesis,
     badge: item.status,
+    details: [
+      item.anamnesis ? `Anamnesis: ${item.anamnesis}` : '',
+      item.physicalExam ? `Examen fÃ­sico: ${item.physicalExam}` : '',
+      item.differentialDiagnosis ? `DiagnÃ³sticos diferenciales: ${item.differentialDiagnosis}` : '',
+      item.treatmentPlan ? `Plan terapÃ©utico: ${item.treatmentPlan}` : '',
+      item.notes ? `Notas: ${item.notes}` : '',
+    ].filter(Boolean),
   }));
 
   const vaccinationItems: TimelineItem[] = vaccinations.map((item) => ({
@@ -136,6 +146,12 @@ function buildTimelineItems({
     subtitle: 'Vacunación',
     summary: item.notes ?? item.manufacturer,
     badge: item.batch,
+    details: [
+      item.manufacturer ? `Fabricante: ${item.manufacturer}` : '',
+      item.batch ? `Lote: ${item.batch}` : '',
+      item.nextDueDate ? `PrÃ³ximo refuerzo: ${fmtDate(item.nextDueDate)}` : '',
+      item.notes ? `Notas: ${item.notes}` : '',
+    ].filter(Boolean),
   }));
 
   const dewormingItems: TimelineItem[] = dewormings.map((item) => ({
@@ -146,6 +162,12 @@ function buildTimelineItems({
     subtitle: 'Desparasitación',
     summary: item.notes,
     badge: item.type,
+    details: [
+      `Tipo: ${item.type}`,
+      item.weightKg != null ? `Peso registrado: ${item.weightKg} kg` : '',
+      item.nextDueDate ? `PrÃ³xima aplicaciÃ³n: ${fmtDate(item.nextDueDate)}` : '',
+      item.notes ? `Notas: ${item.notes}` : '',
+    ].filter(Boolean),
   }));
 
   const prescriptionItems: TimelineItem[] = prescriptions.map((item) => ({
@@ -166,6 +188,7 @@ function buildTimelineItems({
     subtitle: 'Laboratorio',
     summary: item.interpretation ?? item.notes,
     badge: item.status,
+    href: item.fileUrl,
   }));
 
   const documentItems: TimelineItem[] = documents.map((item) => ({
@@ -176,6 +199,7 @@ function buildTimelineItems({
     subtitle: 'Documento clínico',
     summary: item.extraction?.summary ?? item.processingError,
     badge: item.processingStatus,
+    href: item.storageUrl,
   }));
 
   return [
@@ -380,6 +404,8 @@ export default function PetDetailPage({
 
   const consultationHref = `/clinica/consultas/nueva?petId=${pet.id}`;
   const preventionHref = `/clinica/prevencion?petId=${pet.id}`;
+  const vaccinationHref = `/clinica/prevencion?petId=${pet.id}&tab=vacunacion`;
+  const dewormingHref = `/clinica/prevencion?petId=${pet.id}&tab=desparasitacion`;
   const formulaHref = `/clinica/formulas/nueva?petId=${pet.id}`;
   const laboratoryHref = `/clinica/laboratorio/nueva?petId=${pet.id}`;
   const historyHref = `/clinica/historias?petId=${pet.id}`;
@@ -416,7 +442,7 @@ export default function PetDetailPage({
             Registra nuevas actuaciones clínicas directamente sobre la historia del paciente.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           <Button asChild variant="outline">
             <Link href={consultationHref}>
               <Plus className="mr-2 h-4 w-4" />
@@ -424,9 +450,15 @@ export default function PetDetailPage({
             </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href={preventionHref}>
+            <Link href={vaccinationHref}>
               <Plus className="mr-2 h-4 w-4" />
               Prevención
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={dewormingHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              Desparasitacion
             </Link>
           </Button>
           <Button asChild variant="outline">
@@ -496,6 +528,23 @@ export default function PetDetailPage({
                             )}
                             {item.summary && (
                               <p className="text-sm text-foreground/80">{item.summary}</p>
+                            )}
+                            {item.details && item.details.length > 0 && (
+                              <div className="space-y-1 pt-2">
+                                {item.details.map((detail, index) => (
+                                  <p key={`${item.id}-detail-${index}`} className="text-sm text-muted-foreground">
+                                    {detail}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                            {item.href && (
+                              <Button asChild variant="outline" size="sm" className="mt-2">
+                                <a href={item.href} target="_blank" rel="noreferrer">
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver soporte
+                                </a>
+                              </Button>
                             )}
                           </div>
                           {item.badge && <Badge variant="secondary">{item.badge}</Badge>}
@@ -600,7 +649,7 @@ export default function PetDetailPage({
             title="Vacunación"
             description="Vacunas aplicadas y refuerzos."
             createLabel="Abrir prevención"
-            createHref={preventionHref}
+            createHref={vaccinationHref}
             empty={vaccinations.length === 0}
             emptyIcon={<Syringe className="h-8 w-8" />}
             emptyText="No hay vacunas registradas."
@@ -633,7 +682,7 @@ export default function PetDetailPage({
             title="Desparasitación"
             description="Productos antiparasitarios aplicados."
             createLabel="Abrir prevención"
-            createHref={preventionHref}
+            createHref={dewormingHref}
             empty={dewormings.length === 0}
             emptyIcon={<Bug className="h-8 w-8" />}
             emptyText="No hay desparasitaciones registradas."
@@ -732,35 +781,38 @@ export default function PetDetailPage({
         <TabsContent value="documentos">
           <SectionCard
             title="Documentos clínicos"
-            description="Archivos e historias adjuntas."
+            description="Historial cronologico de archivos, historias y soportes en PDF."
             createLabel="Subir documento"
             createHref={historyHref}
             empty={documents.length === 0}
             emptyIcon={<FileText className="h-8 w-8" />}
             emptyText="No hay documentos registrados."
           >
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Archivo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Subido</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {documents.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.fileName}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{item.fileType}</Badge>
-                    </TableCell>
-                    <TableCell>{fmtDate(item.uploadedAt)}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{item.processingStatus}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
+            <div className="space-y-4">
+              {documents.map((item) => (
+                <div key={item.id} className="rounded-xl border p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <FileText className="h-4 w-4" />
+                        <span>{fmtDate(item.uploadedAt)}</span>
+                      </div>
+                      <h3 className="font-medium">{item.fileName}</h3>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="secondary">{item.fileType}</Badge>
+                        <Badge variant="secondary">{item.processingStatus}</Badge>
+                      </div>
+                      {item.extraction?.summary && (
+                        <p className="text-sm text-foreground/80">{item.extraction.summary}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <a href={item.storageUrl} target="_blank" rel="noreferrer">
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver PDF
+                        </a>
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -775,11 +827,11 @@ export default function PetDetailPage({
                           <Trash2 className="h-4 w-4" />
                         )}
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </SectionCard>
         </TabsContent>
       </Tabs>
