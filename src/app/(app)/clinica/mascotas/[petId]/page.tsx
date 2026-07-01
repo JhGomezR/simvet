@@ -642,16 +642,6 @@ export default function PetDetailPage({
   function handleExportClinicalHistoryPdf() {
     if (!pet) return;
 
-    const popup = window.open('', '_blank', 'noopener,noreferrer,width=980,height=720');
-    if (!popup) {
-      toast({
-        variant: 'destructive',
-        title: 'No se pudo exportar el PDF',
-        description: 'Permite ventanas emergentes para generar la historia clinica en PDF.',
-      });
-      return;
-    }
-
     const sections = [
       {
         title: 'Consultas',
@@ -717,7 +707,7 @@ export default function PetDetailPage({
       },
     ];
 
-    popup.document.write(`<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -746,10 +736,44 @@ export default function PetDetailPage({
     )
     .join('')}
 </body>
-</html>`);
-    popup.document.close();
-    popup.focus();
-    popup.print();
+</html>`;
+
+    const frame = document.createElement('iframe');
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    frame.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(frame);
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        frame.remove();
+      }, 1000);
+    };
+
+    const frameDoc = frame.contentWindow?.document;
+    if (!frameDoc || !frame.contentWindow) {
+      frame.remove();
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo exportar el PDF',
+        description: 'No fue posible preparar el documento para impresion.',
+      });
+      return;
+    }
+
+    frameDoc.open();
+    frameDoc.write(html);
+    frameDoc.close();
+
+    frame.onload = () => {
+      frame.contentWindow?.focus();
+      frame.contentWindow?.print();
+      cleanup();
+    };
   }
 
   async function handleDeleteDocument(doc: ClinicalDocument) {
