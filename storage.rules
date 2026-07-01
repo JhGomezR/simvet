@@ -54,6 +54,10 @@ service firebase.storage {
       );
     }
 
+    function canAccessLegacyDefaultClinic(clinicId) {
+      return clinicId == 'default' && isSignedIn();
+    }
+
     function isImage() {
       return request.resource.contentType.matches('image/.*');
     }
@@ -91,8 +95,10 @@ service firebase.storage {
     // Documentos clínicos (historias subidas, resultados de lab, dictados de voz).
     // Lectura para logueados; escritura validando tipo y tamaño (<20MB).
     match /clinical/{clinicId}/{allPaths=**} {
-      allow read: if canAccessClinicPath(clinicId);
-      allow create, update: if canAccessClinicPath(clinicId) && isClinicalDoc() && under20MB();
+      allow read: if canAccessClinicPath(clinicId) || canAccessLegacyDefaultClinic(clinicId);
+      allow create, update: if (canAccessClinicPath(clinicId) || canAccessLegacyDefaultClinic(clinicId))
+        && isClinicalDoc()
+        && under20MB();
       allow delete: if canAccessClinicPath(clinicId) && isVetOrAdmin();
     }
 
