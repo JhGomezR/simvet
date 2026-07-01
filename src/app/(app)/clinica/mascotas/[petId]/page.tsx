@@ -313,6 +313,7 @@ export default function PetDetailPage({
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [savingTimeline, setSavingTimeline] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState('timeline');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -552,6 +553,8 @@ export default function PetDetailPage({
         description: 'La informaciÃ³n clÃ­nica se guardÃ³ correctamente.',
       });
       setEditingTimeline(false);
+      setTimelineDialogOpen(false);
+      setActiveTab('documentos');
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -828,7 +831,7 @@ export default function PetDetailPage({
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="timeline" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex h-auto flex-wrap">
           <TabsTrigger value="timeline">Línea de tiempo</TabsTrigger>
           <TabsTrigger value="datos">Datos</TabsTrigger>
