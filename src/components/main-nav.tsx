@@ -53,11 +53,11 @@ const navItems: NavItem[] = [
 
 export function MainNav() {
   const pathname = usePathname();
-  const { role } = useAuth();
+  const { role, roles } = useAuth();
 
   const visibleItems = navItems.filter((item) => {
     if (!item.roles) return true;
-    return role && item.roles.includes(role);
+    return item.roles.some((requiredRole) => roles.includes(requiredRole) || role === requiredRole);
   });
 
   return (

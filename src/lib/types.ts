@@ -23,6 +23,7 @@ export type UserProfile = {
   email: string;
   displayName: string;
   role: UserRole;
+  roles?: UserRole[];
   avatarUrl?: string;
   mustChangePassword?: boolean;
   // Vínculo a la veterinaria a la que pertenece (clínico)

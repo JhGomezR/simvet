@@ -22,6 +22,7 @@ import type {
   Attempt,
   UserProfile,
   Case,
+  UserRole,
 } from './types';
 
 function stripUndefined<T>(value: T): T {
@@ -157,23 +158,44 @@ export const usersRepo = {
     return snap.docs.map((d) => d.data() as UserProfile);
   },
 
+  async listAdmins(): Promise<UserProfile[]> {
+    const snap = await getDocs(query(collection(db, 'users'), where('roles', 'array-contains', 'admin')));
+    if (snap.docs.length > 0) {
+      return snap.docs.map((d) => d.data() as UserProfile);
+    }
+
+    const legacySnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'admin')));
+    return legacySnap.docs.map((d) => d.data() as UserProfile);
+  },
+
   async updateRole(uid: string, role: 'student' | 'professor' | 'admin'): Promise<void> {
     const profile = await this.getProfile(uid);
     if (!profile) {
       throw new Error('No se encontro el usuario a actualizar.');
     }
 
-    if (profile.role === 'admin' && role !== 'admin') {
-      const admins = await getDocs(
-        query(collection(db, 'users'), where('role', '==', 'admin'), fbLimit(2))
-      );
-      if (admins.size <= 1) {
+    const existingRoles = new Set(profile.roles ?? [profile.role]);
+    const currentlyAdmin = existingRoles.has('admin') || profile.role === 'admin';
+
+    if (currentlyAdmin && role !== 'admin') {
+      const admins = await this.listAdmins();
+      if (admins.length <= 1) {
         throw new Error(
           'No puedes quitar el rol al unico administrador. Crea o promueve otro admin primero.'
         );
       }
     }
 
-    await updateDoc(doc(db, 'users', uid), { role, updatedAt: Date.now() });
+    const nextRoles = new Set<UserRole>(profile.roles ?? [profile.role]);
+    nextRoles.add(role);
+    if (currentlyAdmin) {
+      nextRoles.add('admin');
+    }
+
+    await updateDoc(doc(db, 'users', uid), {
+      role,
+      roles: Array.from(nextRoles),
+      updatedAt: Date.now(),
+    });
   },
 };

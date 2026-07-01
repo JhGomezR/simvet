@@ -23,7 +23,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, roles, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -47,15 +47,18 @@ export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
 
     // 4. Validar rol requerido
     if (requiredRole) {
-      const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-      const allowed = roles.includes(profile.role)
-        || (profile.role === 'admin'); // admin pasa por todos lados
+      const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+      const rolesFromProfile = profile.roles ?? roles ?? [profile.role];
+      const allowed =
+        requiredRoles.some(
+          (required) => required === profile.role || rolesFromProfile.includes(required)
+        ) || rolesFromProfile.includes('admin');
       if (!allowed) {
         router.replace('/dashboard');
         return;
       }
     }
-  }, [loading, user, profile, requiredRole, router, pathname]);
+  }, [loading, user, profile, requiredRole, router, pathname, roles]);
 
   if (loading || !user || !profile) {
     return (

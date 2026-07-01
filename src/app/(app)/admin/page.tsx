@@ -50,7 +50,7 @@ export default function AdminPage() {
     load();
   }, [toast]);
 
-  const adminCount = users.filter((u) => u.role === 'admin').length;
+  const adminCount = users.filter((u) => (u.roles ?? [u.role]).includes('admin')).length;
 
   const handleRoleChange = async (uid: string, newRole: ManageableRole) => {
     setBusyUid(uid);
@@ -100,7 +100,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {users.filter((u) => u.role === 'professor').length}
+              {users.filter((u) => (u.roles ?? [u.role]).includes('professor')).length}
             </div>
           </CardContent>
         </Card>
@@ -111,7 +111,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {users.filter((u) => u.role === 'student').length}
+              {users.filter((u) => (u.roles ?? [u.role]).includes('student')).length}
             </div>
           </CardContent>
         </Card>
@@ -145,9 +145,22 @@ export default function AdminPage() {
                     <TableCell>{u.displayName}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
-                      <Badge variant={u.role === 'admin' ? 'destructive' : u.role === 'professor' ? 'default' : 'secondary'}>
-                        {u.role}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {(u.roles ?? [u.role]).map((currentRole) => (
+                          <Badge
+                            key={`${u.uid}-${currentRole}`}
+                            variant={
+                              currentRole === 'admin'
+                                ? 'destructive'
+                                : currentRole === 'professor'
+                                  ? 'default'
+                                  : 'secondary'
+                            }
+                          >
+                            {currentRole}
+                          </Badge>
+                        ))}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Select
@@ -164,7 +177,7 @@ export default function AdminPage() {
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
-                      {u.role === 'admin' && adminCount === 1 && user?.uid === u.uid && (
+                      {(u.roles ?? [u.role]).includes('admin') && adminCount === 1 && user?.uid === u.uid && (
                         <p className="mt-1 text-xs text-amber-700">
                           Eres el unico administrador. Promueve otro admin antes de cambiar este rol.
                         </p>

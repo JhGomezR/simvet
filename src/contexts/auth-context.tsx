@@ -34,6 +34,7 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   role: UserRole | null;
+  roles: UserRole[];
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -60,7 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const ref = doc(db, 'users', fbUser.uid);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        setProfile(snap.data() as UserProfile);
+        const profileData = snap.data() as UserProfile;
+        const normalizedProfile: UserProfile = {
+          ...profileData,
+          roles: Array.from(new Set(profileData.roles ?? [profileData.role])),
+        };
+        setProfile(normalizedProfile);
       } else {
         // Auto-creación de perfil para nuevos signups con rol 'student' por defecto
         const newProfile: UserProfile = {
@@ -68,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: fbUser.email ?? '',
           displayName: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? 'Usuario',
           role: 'student',
+          roles: ['student'],
           avatarUrl: fbUser.photoURL ?? undefined,
           mustChangePassword: false,
           level: 'Básico',
@@ -104,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         profile,
         role: profile?.role ?? null,
+        roles: profile?.roles ?? (profile?.role ? [profile.role] : []),
         loading,
         signInWithEmail,
         signInWithGoogle,

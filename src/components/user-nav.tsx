@@ -22,7 +22,7 @@ interface UserNavProps {
 
 export function UserNav({ student }: UserNavProps) {
   const router = useRouter();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, roles } = useAuth();
   const initials = student.name
     .split(' ')
     .map((n) => n[0])
@@ -34,6 +34,12 @@ export function UserNav({ student }: UserNavProps) {
     await signOut();
     router.push('/login');
   };
+
+  const roleLabels = roles
+    .filter((role) => role !== 'student')
+    .map((role) =>
+      role === 'admin' ? 'Administrador' : role === 'professor' ? 'Profesor' : role
+    );
 
   return (
     <DropdownMenu>
@@ -50,9 +56,7 @@ export function UserNav({ student }: UserNavProps) {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{student.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {profile?.role === 'admin' ? 'Administrador' :
-                profile?.role === 'professor' ? 'Profesor' :
-                `Nivel: ${student.level}`}
+              {roleLabels.length > 0 ? roleLabels.join(' · ') : `Nivel: ${student.level}`}
             </p>
           </div>
         </DropdownMenuLabel>

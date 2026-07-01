@@ -27,16 +27,24 @@ service cloud.firestore {
       return userDoc(request.auth.uid).role;
     }
 
+    function myRoles() {
+      return 'roles' in userDoc(request.auth.uid) ? userDoc(request.auth.uid).roles : [];
+    }
+
+    function hasRole(roleName) {
+      return isSignedIn() && (myRole() == roleName || roleName in myRoles());
+    }
+
     function isStudent() {
-      return isSignedIn() && myRole() == 'student';
+      return hasRole('student');
     }
 
     function isProfessor() {
-      return isSignedIn() && myRole() == 'professor';
+      return hasRole('professor');
     }
 
     function isAdmin() {
-      return isSignedIn() && myRole() == 'admin';
+      return hasRole('admin');
     }
 
     function isProfessorOrAdmin() {
@@ -44,17 +52,21 @@ service cloud.firestore {
     }
 
     function canCreateAttempts() {
-      return isSignedIn() && myRole() in ['student', 'professor', 'admin'];
+      return isSignedIn() && (
+        hasRole('student') || hasRole('professor') || hasRole('admin')
+      );
     }
 
     // Roles clínicos (SimVet Clinical): acceso a datos REALES de pacientes.
     function isClinicalStaff() {
-      return isSignedIn() && myRole() in ['admin', 'veterinarian', 'assistant', 'professor'];
+      return isSignedIn() && (
+        hasRole('admin') || hasRole('veterinarian') || hasRole('assistant') || hasRole('professor')
+      );
     }
 
     // Sólo veterinario/admin pueden firmar actos médicos (consultas, recetas, etc.)
     function isVetOrAdmin() {
-      return isSignedIn() && myRole() in ['admin', 'veterinarian'];
+      return isSignedIn() && (hasRole('admin') || hasRole('veterinarian'));
     }
 
     // ============================================================
