@@ -16,7 +16,9 @@ import {
   Plus,
   Stethoscope,
   Syringe,
+  Trash2,
 } from 'lucide-react';
+import { deleteObject, ref } from 'firebase/storage';
 import {
   Card,
   CardContent,
@@ -37,10 +39,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { storage } from '@/lib/firebase';
 import {
   clinicalDocumentsRepo,
   consultationsRepo,
   dewormingsRepo,
+  documentChunksRepo,
   labExamsRepo,
   ownersRepo,
   petsRepo,
@@ -225,6 +230,7 @@ export default function PetDetailPage({
 }) {
   const { petId } = use(params);
   const { profile } = useAuth();
+  const { toast } = useToast();
   const clinicId = profile?.clinicId ?? 'default';
 
   const [pet, setPet] = useState<Pet | null>(null);
@@ -236,6 +242,7 @@ export default function PetDetailPage({
   const [labExams, setLabExams] = useState<LabExam[]>([]);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -298,6 +305,39 @@ export default function PetDetailPage({
       }),
     [consultations, vaccinations, dewormings, prescriptions, labExams, documents]
   );
+
+  async function handleDeleteDocument(doc: ClinicalDocument) {
+    const confirmed = window.confirm(
+      `¿Eliminar el archivo "${doc.fileName}" y sus fragmentos asociados?`
+    );
+    if (!confirmed) return;
+
+    setDeletingDocumentId(doc.id);
+    try {
+      const chunks = await documentChunksRepo.listByDocument(doc.id);
+      await Promise.all(chunks.map((chunk) => documentChunksRepo.remove(chunk.id)));
+
+      if (doc.storagePath) {
+        await deleteObject(ref(storage, doc.storagePath));
+      }
+
+      await clinicalDocumentsRepo.remove(doc.id);
+      setDocuments((current) => current.filter((item) => item.id !== doc.id));
+      toast({
+        title: 'Documento eliminado',
+        description: 'El documento clínico y sus fragmentos asociados fueron eliminados.',
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo eliminar el documento.';
+      toast({
+        variant: 'destructive',
+        title: 'Error al eliminar documento',
+        description: message,
+      });
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -693,6 +733,7 @@ export default function PetDetailPage({
                   <TableHead>Tipo</TableHead>
                   <TableHead>Subido</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -705,6 +746,22 @@ export default function PetDetailPage({
                     <TableCell>{fmtDate(item.uploadedAt)}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{item.processingStatus}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void handleDeleteDocument(item)}
+                        disabled={deletingDocumentId === item.id}
+                        aria-label={`Eliminar ${item.fileName}`}
+                      >
+                        {deletingDocumentId === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
