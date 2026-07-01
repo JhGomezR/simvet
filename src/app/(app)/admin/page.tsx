@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, doc, getDocs, updateDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/auth-context';
+import { usersRepo } from '@/lib/repositories';
 import {
   Card,
   CardContent,
@@ -23,17 +23,20 @@ import { useToast } from '@/hooks/use-toast';
 import { ShieldCheck, Users, BookOpen, Loader2 } from 'lucide-react';
 import type { UserProfile, UserRole } from '@/lib/types';
 
+type ManageableRole = 'student' | 'professor' | 'admin';
+
 export default function AdminPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyUid, setBusyUid] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        setUsers(snap.docs.map((d) => d.data() as UserProfile));
+        const list = await usersRepo.listAll();
+        setUsers(list);
       } catch (err) {
         toast({
           variant: 'destructive',
@@ -47,12 +50,12 @@ export default function AdminPage() {
     load();
   }, [toast]);
 
-  const handleRoleChange = async (uid: string, newRole: UserRole) => {
+  const adminCount = users.filter((u) => u.role === 'admin').length;
+
+  const handleRoleChange = async (uid: string, newRole: ManageableRole) => {
+    setBusyUid(uid);
     try {
-      await updateDoc(doc(db, 'users', uid), {
-        role: newRole,
-        updatedAt: Date.now(),
-      });
+      await usersRepo.updateRole(uid, newRole);
       setUsers((prev) =>
         prev.map((u) => (u.uid === uid ? { ...u, role: newRole } : u))
       );
@@ -63,6 +66,8 @@ export default function AdminPage() {
         title: 'Error actualizando rol',
         description: err instanceof Error ? err.message : 'Intenta de nuevo',
       });
+    } finally {
+      setBusyUid(null);
     }
   };
 
@@ -116,7 +121,7 @@ export default function AdminPage() {
         <CardHeader>
           <CardTitle>Gestión de usuarios</CardTitle>
           <CardDescription>
-            Promueve usuarios a profesor o administrador.
+            Admin conserva acceso total al sistema. No quites el rol al unico administrador sin promover otro antes.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -147,7 +152,8 @@ export default function AdminPage() {
                     <TableCell>
                       <Select
                         value={u.role}
-                        onValueChange={(v) => handleRoleChange(u.uid, v as UserRole)}
+                        disabled={busyUid === u.uid}
+                        onValueChange={(v) => handleRoleChange(u.uid, v as ManageableRole)}
                       >
                         <SelectTrigger className="w-[140px]">
                           <SelectValue />
@@ -158,6 +164,11 @@ export default function AdminPage() {
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+                      {u.role === 'admin' && adminCount === 1 && user?.uid === u.uid && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          Eres el unico administrador. Promueve otro admin antes de cambiar este rol.
+                        </p>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

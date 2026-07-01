@@ -158,6 +158,22 @@ export const usersRepo = {
   },
 
   async updateRole(uid: string, role: 'student' | 'professor' | 'admin'): Promise<void> {
+    const profile = await this.getProfile(uid);
+    if (!profile) {
+      throw new Error('No se encontro el usuario a actualizar.');
+    }
+
+    if (profile.role === 'admin' && role !== 'admin') {
+      const admins = await getDocs(
+        query(collection(db, 'users'), where('role', '==', 'admin'), fbLimit(2))
+      );
+      if (admins.size <= 1) {
+        throw new Error(
+          'No puedes quitar el rol al unico administrador. Crea o promueve otro admin primero.'
+        );
+      }
+    }
+
     await updateDoc(doc(db, 'users', uid), { role, updatedAt: Date.now() });
   },
 };
