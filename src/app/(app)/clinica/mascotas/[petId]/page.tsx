@@ -313,6 +313,9 @@ export default function PetDetailPage({
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [savingTimeline, setSavingTimeline] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<Record<string, string>>({});
+  const [editPatientDialogOpen, setEditPatientDialogOpen] = useState(false);
+  const [savingPatient, setSavingPatient] = useState(false);
+  const [patientDraft, setPatientDraft] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState('timeline');
   const [error, setError] = useState<string | null>(null);
 
@@ -402,6 +405,10 @@ export default function PetDetailPage({
       ? documents.find((item) => item.id === selectedTimelineItem.entityId) ?? null
       : null;
 
+  function getTimelineItem(type: TimelineItem['type'], entityId: string) {
+    return timelineItems.find((item) => item.type === type && item.entityId === entityId) ?? null;
+  }
+
   function openTimelineItem(item: TimelineItem) {
     setSelectedTimelineItem(item);
     setEditingTimeline(false);
@@ -464,6 +471,72 @@ export default function PetDetailPage({
         setTimelineDraft({});
     }
     setTimelineDialogOpen(true);
+  }
+
+  function openPatientEditDialog() {
+    if (!pet) return;
+    setPatientDraft({
+      name: pet.name ?? '',
+      species: pet.species ?? '',
+      breed: pet.breed ?? '',
+      sex: pet.sex ?? '',
+      color: pet.color ?? '',
+      weightKg: pet.weightKg != null ? String(pet.weightKg) : '',
+      allergies: pet.allergies ?? '',
+      chronicConditions: pet.chronicConditions ?? '',
+      notes: pet.notes ?? '',
+      ownerPhone: owner?.phone ?? '',
+      ownerEmail: owner?.email ?? '',
+      ownerCity: owner?.city ?? '',
+      ownerAddress: owner?.address ?? '',
+    });
+    setEditPatientDialogOpen(true);
+  }
+
+  async function handleSavePatientData() {
+    if (!pet) return;
+
+    setSavingPatient(true);
+    try {
+      const petPatch: Partial<Pet> = {
+        name: patientDraft.name || pet.name,
+        species: patientDraft.species || pet.species,
+        breed: patientDraft.breed || undefined,
+        sex: (patientDraft.sex as Pet['sex']) || undefined,
+        color: patientDraft.color || undefined,
+        weightKg: patientDraft.weightKg ? Number(patientDraft.weightKg) : undefined,
+        allergies: patientDraft.allergies || undefined,
+        chronicConditions: patientDraft.chronicConditions || undefined,
+        notes: patientDraft.notes || undefined,
+      };
+      await petsRepo.update(pet.id, petPatch);
+      setPet((current) => (current ? { ...current, ...petPatch } : current));
+
+      if (owner) {
+        const ownerPatch: Partial<Owner> = {
+          phone: patientDraft.ownerPhone || undefined,
+          email: patientDraft.ownerEmail || undefined,
+          city: patientDraft.ownerCity || undefined,
+          address: patientDraft.ownerAddress || undefined,
+        };
+        await ownersRepo.update(owner.id, ownerPatch);
+        setOwner((current) => (current ? { ...current, ...ownerPatch } : current));
+      }
+
+      toast({
+        title: 'Datos actualizados',
+        description: 'La ficha del paciente se actualizó correctamente.',
+      });
+      setEditPatientDialogOpen(false);
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'No se pudieron guardar los datos',
+        description: err instanceof Error ? err.message : 'Error al actualizar la ficha del paciente.',
+      });
+    } finally {
+      setSavingPatient(false);
+    }
   }
 
   async function handleSaveTimelineItem() {
@@ -920,8 +993,20 @@ export default function PetDetailPage({
         <TabsContent value="datos">
           <Card>
             <CardHeader>
-              <CardTitle>Datos del paciente</CardTitle>
-              <CardDescription>Información general y dueño.</CardDescription>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Datos del paciente</CardTitle>
+                  <CardDescription>Informacion general, propietario y exportacion de la ficha.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={openPatientEditDialog}>
+                    Editar datos
+                  </Button>
+                  <Button type="button" size="sm" onClick={handleExportClinicalHistoryPdf}>
+                    Exportar PDF
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -983,8 +1068,9 @@ export default function PetDetailPage({
                 <TableRow>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Motivo</TableHead>
-                  <TableHead>Diagnóstico</TableHead>
+                  <TableHead>Diagnostico</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -992,9 +1078,17 @@ export default function PetDetailPage({
                   <TableRow key={item.id}>
                     <TableCell>{fmtDate(item.date)}</TableCell>
                     <TableCell>{item.reason}</TableCell>
-                    <TableCell>{item.diagnosis ?? '—'}</TableCell>
+                    <TableCell>{item.diagnosis ?? '?'}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{item.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        const current = getTimelineItem('consulta', item.id);
+                        if (current) openTimelineItem(current);
+                      }}>
+                        Ver ficha
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1018,8 +1112,9 @@ export default function PetDetailPage({
                 <TableRow>
                   <TableHead>Vacuna</TableHead>
                   <TableHead>Aplicada</TableHead>
-                  <TableHead>Próximo refuerzo</TableHead>
+                  <TableHead>Proximo refuerzo</TableHead>
                   <TableHead>Lote</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1028,7 +1123,15 @@ export default function PetDetailPage({
                     <TableCell className="font-medium">{item.vaccineName}</TableCell>
                     <TableCell>{fmtDate(item.appliedDate)}</TableCell>
                     <TableCell>{fmtDate(item.nextDueDate)}</TableCell>
-                    <TableCell>{item.batch ?? '—'}</TableCell>
+                    <TableCell>{item.batch ?? '?'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        const current = getTimelineItem('vacuna', item.id);
+                        if (current) openTimelineItem(current);
+                      }}>
+                        Ver ficha
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1064,6 +1167,14 @@ export default function PetDetailPage({
                     </TableCell>
                     <TableCell>{fmtDate(item.appliedDate)}</TableCell>
                     <TableCell>{fmtDate(item.nextDueDate)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        const current = getTimelineItem('desparasitacion', item.id);
+                        if (current) openTimelineItem(current);
+                      }}>
+                        Ver ficha
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1093,8 +1204,16 @@ export default function PetDetailPage({
                 {prescriptions.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{fmtDate(item.date)}</TableCell>
-                    <TableCell>{item.items.map((entry) => entry.drug).join(', ') || '—'}</TableCell>
-                    <TableCell>{item.diagnosis ?? '—'}</TableCell>
+                    <TableCell>{item.items.map((entry) => entry.drug).join(', ') || '?'}</TableCell>
+                    <TableCell>{item.diagnosis ?? '?'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        const current = getTimelineItem('formula', item.id);
+                        if (current) openTimelineItem(current);
+                      }}>
+                        Ver ficha
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1119,6 +1238,7 @@ export default function PetDetailPage({
                   <TableHead>Solicitado</TableHead>
                   <TableHead>Resultado</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1129,6 +1249,14 @@ export default function PetDetailPage({
                     <TableCell>{fmtDate(item.resultDate)}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{item.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        const current = getTimelineItem('laboratorio', item.id);
+                        if (current) openTimelineItem(current);
+                      }}>
+                        Ver ficha
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1178,6 +1306,12 @@ export default function PetDetailPage({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => {
+                            const current = getTimelineItem('documento', item.id);
+                            if (current) openTimelineItem(current);
+                          }}>
+                            Ver ficha
+                          </Button>
                           <Button asChild variant="outline" size="sm">
                             <a href={item.storageUrl} target="_blank" rel="noreferrer">
                               <Eye className="mr-2 h-4 w-4" />
