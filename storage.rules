@@ -48,7 +48,10 @@ service firebase.storage {
     }
 
     function canAccessClinicPath(clinicId) {
-      return isClinicalStaff() && myClinicId() == clinicId;
+      return isClinicalStaff() && (
+        myClinicId() == clinicId
+        || clinicId == 'default'
+      );
     }
 
     function isImage() {
