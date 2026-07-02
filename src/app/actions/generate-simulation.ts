@@ -31,6 +31,15 @@ function isQuotaError(err: unknown): boolean {
   return /RESOURCE_EXHAUSTED|429|Too Many Requests|prepayment credits are depleted/i.test(message);
 }
 
+function isQuotaPlaceholderText(text?: string): boolean {
+  const normalized = text?.toLowerCase().trim() ?? '';
+  return (
+    normalized.includes('cuota de gemini esta agotada') ||
+    normalized.includes('extraccion automatica no pudo completarse') ||
+    normalized.includes('completa el resumen clinico manualmente')
+  );
+}
+
 function buildFallbackCase(
   input: GenerateSimulationActionInput
 ): Omit<ClinicalCase, 'id' | 'authorUid' | 'status'> {
@@ -197,6 +206,14 @@ async function buildClinicKnowledgeBaseContext(input: GenerateSimulationActionIn
 export async function generateSimulationAction(
   input: GenerateSimulationActionInput
 ): Promise<GenerateSimulationResponse> {
+  if (!input.clinicalText.trim() || isQuotaPlaceholderText(input.clinicalText)) {
+    return {
+      ok: false,
+      error:
+        'No hay base clinica suficiente para generar la simulacion. Completa primero un resumen clinico manual o reprocesa la historia con IA.',
+    };
+  }
+
   try {
     const knowledgeBaseContext = await buildClinicKnowledgeBaseContext(input);
     const g = await generateSimulationFromHistory({

@@ -195,6 +195,15 @@ function buildManualBaseText(extraction?: ClinicalExtraction | null, rawText?: s
   );
 }
 
+function isQuotaPlaceholderText(text?: string) {
+  const normalized = text?.toLowerCase().trim() ?? '';
+  return (
+    normalized.includes('cuota de gemini esta agotada') ||
+    normalized.includes('extraccion automatica no pudo completarse') ||
+    normalized.includes('completa el resumen clinico manualmente')
+  );
+}
+
 function canRetryWithAi(doc: ClinicalDocument) {
   return doc.processingStatus === 'queued_ai';
 }
@@ -595,12 +604,19 @@ export default function HistoriasIAPage() {
         .filter(Boolean)
         .join('. ') ||
       rawText;
+    const extractionSummary = extraction?.summary?.trim() ?? '';
+    const manualSummary = manualClinicalText.trim();
+    const onlyQuotaPlaceholder =
+      isQuotaPlaceholderText(clinicalText) ||
+      (isQuotaPlaceholderText(extractionSummary) &&
+        (!manualSummary || isQuotaPlaceholderText(manualSummary)));
 
-    if (!clinicalText.trim()) {
+    if (!clinicalText.trim() || onlyQuotaPlaceholder) {
       toast({
         variant: 'destructive',
-        title: 'Sin contenido clínico',
-        description: 'Procesa una historia antes de generar la simulación.',
+        title: 'Base clínica insuficiente',
+        description:
+          'La historia aún no tiene información clínica util para una simulación. Completa primero el resumen clínico manual o espera el reprocesamiento con IA.',
       });
       return;
     }
