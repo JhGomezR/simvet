@@ -41,10 +41,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="clinical-glow flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-emerald-500 text-white">
               <UniversityLogo className="h-6 w-6" />
             </div>
-            <div>
-              <span className="clinical-kicker block">Clinical Tech</span>
-              <span>SimVet</span>
-            </div>
+            <span>SimVet</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto px-4 py-5">

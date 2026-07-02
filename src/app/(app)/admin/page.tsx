@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -92,7 +92,6 @@ export default function AdminPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingUser, setCreatingUser] = useState(false);
-  const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
 
   const createForm = useForm<CreateUserValues>({
@@ -116,9 +115,6 @@ export default function AdminPage() {
       ]);
       setUsers(list);
       setClinics(clinicList);
-      if (!selectedUid && list[0]) {
-        setSelectedUid(list[0].uid);
-      }
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -134,11 +130,6 @@ export default function AdminPage() {
     void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const selectedUser = useMemo(
-    () => users.find((profile) => profile.uid === selectedUid) ?? null,
-    [selectedUid, users]
-  );
 
   const adminCount = users.filter((u) => normalizeUserRoles(u.role, u.roles).includes('admin')).length;
   const professorCount = users.filter((u) =>
@@ -206,7 +197,6 @@ export default function AdminPage() {
       });
 
       await loadData();
-      setSelectedUid(result.uid);
 
       toast({
         title: 'Usuario creado',
@@ -235,12 +225,8 @@ export default function AdminPage() {
       <Card className="overflow-hidden">
         <CardHeader className="sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="clinical-kicker">Access Orchestration</p>
             <CardTitle className="text-2xl">Panel de Administración</CardTitle>
-            <CardDescription>
-              Crea cuentas, asigna roles y revisa el RBAC visible para cada perfil dentro de
-              SimVet.
-            </CardDescription>
+            <CardDescription>Crea cuentas y asigna roles dentro de SimVet.</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => void loadData()}>
             <RefreshCcw className="mr-2 h-4 w-4" />
@@ -252,40 +238,28 @@ export default function AdminPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Users</p>
-              <CardTitle className="text-base">Usuarios totales</CardTitle>
-            </div>
+            <CardTitle className="text-base">Usuarios totales</CardTitle>
             <Users className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent className="text-4xl font-semibold text-slate-950">{users.length}</CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Leadership</p>
-              <CardTitle className="text-base">Administradores</CardTitle>
-            </div>
+            <CardTitle className="text-base">Administradores</CardTitle>
             <ShieldCheck className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent className="text-4xl font-semibold text-slate-950">{adminCount}</CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Faculty</p>
-              <CardTitle className="text-base">Docentes</CardTitle>
-            </div>
+            <CardTitle className="text-base">Docentes</CardTitle>
             <BookOpen className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent className="text-4xl font-semibold text-slate-950">{professorCount}</CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Learners</p>
-              <CardTitle className="text-base">Estudiantes</CardTitle>
-            </div>
+            <CardTitle className="text-base">Estudiantes</CardTitle>
             <GraduationCap className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent className="text-4xl font-semibold text-slate-950">{studentCount}</CardContent>
@@ -300,412 +274,278 @@ export default function AdminPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <p className="clinical-kicker">Provisioning</p>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" />
-              Crear usuario
-            </CardTitle>
-            <CardDescription>
-              Crea la cuenta y define su base de acceso desde un solo flujo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {createdCredentials ? (
-              <div className="rounded-[1.25rem] border border-emerald-200 bg-emerald-50/90 p-4 text-sm text-emerald-900">
-                <p className="font-semibold">Usuario creado correctamente</p>
-                <p className="mt-2">Correo: {createdCredentials.email}</p>
-                <p>
-                  Contraseña temporal:{' '}
-                  <span className="rounded bg-white/70 px-2 py-1 font-mono">
-                    {createdCredentials.temporaryPassword}
-                  </span>
-                </p>
-                <p className="mt-2">
-                  Rol inicial: <strong>{ROLE_LABELS[createdCredentials.role]}</strong>
-                </p>
-                <p>
-                  Login validado:{' '}
-                  <strong>{createdCredentials.credentialsValidated ? 'Sí' : 'Pendiente'}</strong>
-                </p>
-                <p className="mt-2">
-                  Ya puedes cerrar sesión y entrar con esta cuenta para comprobar su vista.
-                </p>
-              </div>
-            ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Crear usuario</CardTitle>
+          <CardDescription>Crea la cuenta y define su base de acceso desde un solo flujo.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {createdCredentials ? (
+            <div className="rounded-[1.25rem] border border-emerald-200 bg-emerald-50/90 p-4 text-sm text-emerald-900">
+              <p className="font-semibold">Usuario creado correctamente</p>
+              <p className="mt-2">Correo: {createdCredentials.email}</p>
+              <p>
+                Contraseña temporal:{' '}
+                <span className="rounded bg-white/70 px-2 py-1 font-mono">
+                  {createdCredentials.temporaryPassword}
+                </span>
+              </p>
+              <p className="mt-2">
+                Rol inicial: <strong>{ROLE_LABELS[createdCredentials.role]}</strong>
+              </p>
+              <p>
+                Login validado:{' '}
+                <strong>{createdCredentials.credentialsValidated ? 'Sí' : 'Pendiente'}</strong>
+              </p>
+              <p className="mt-2">
+                Ya puedes cerrar sesión y entrar con esta cuenta para comprobar su vista.
+              </p>
+            </div>
+          ) : null}
 
-            <Form {...createForm}>
-              <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField
-                    control={createForm.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombre</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Nombre del usuario" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Correo</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="usuario@simvet.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contraseña temporal</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="Opcional: se genera automáticamente"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Si la dejas vacía, el sistema genera una contraseña temporal.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="clinicId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Clínica</FormLabel>
-                        <Select
-                          value={field.value || '__none__'}
-                          onValueChange={(value) =>
-                            field.onChange(value === '__none__' ? '' : value)
-                          }
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sin asignar" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">Sin asignar</SelectItem>
-                            {clinics.map((clinic) => (
-                              <SelectItem key={clinic.id} value={clinic.id}>
-                                {clinic.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
+          <Form {...createForm}>
+            <form onSubmit={createForm.handleSubmit(handleCreateUser)} className="space-y-5">
+              <div className="grid gap-4 md:grid-cols-2">
                 <FormField
                   control={createForm.control}
-                  name="role"
+                  name="displayName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Rol principal</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => {
-                          const nextRole = value as UserRole;
-                          field.onChange(nextRole);
-                          createForm.setValue(
-                            'roles',
-                            ensurePrimaryRoleIncluded(nextRole, createForm.getValues('roles'))
-                          );
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="max-w-[280px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {roleOptions.map((role) => (
-                            <SelectItem key={role} value={role}>
-                              {ROLE_LABELS[role]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Nombre</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nombre del usuario" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Correo</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="usuario@simvet.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contraseña temporal</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="Opcional: se genera automáticamente"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormDescription>
-                        El rol principal define el modo predominante de la cuenta.
+                        Si la dejas vacía, el sistema genera una contraseña temporal.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={createForm.control}
-                  name="roles"
+                  name="clinicId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Roles habilitados</FormLabel>
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {roleOptions.map((role) => {
-                          const checked = field.value.includes(role);
-                          return (
-                            <label
-                              key={role}
-                              className="rounded-[1.1rem] border border-slate-200/80 bg-white/70 p-4 text-sm transition-all duration-200 hover:border-primary/25 hover:shadow-[0_20px_40px_-36px_rgba(15,23,42,0.6)]"
-                            >
-                              <div className="flex items-start gap-3">
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(value) => {
-                                    const current = new Set(field.value);
-                                    if (value) current.add(role);
-                                    else current.delete(role);
-                                    current.add(createForm.getValues('role'));
-                                    field.onChange(Array.from(current));
-                                  }}
-                                />
-                                <span>
-                                  <span className="block font-medium text-slate-900">
-                                    {ROLE_LABELS[role]}
-                                  </span>
-                                  <span className="mt-1 block text-muted-foreground">
-                                    {ROLE_PLAYBOOKS[role].summary}
-                                  </span>
-                                </span>
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
+                      <FormLabel>Clínica</FormLabel>
+                      <Select
+                        value={field.value || '__none__'}
+                        onValueChange={(value) =>
+                          field.onChange(value === '__none__' ? '' : value)
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sin asignar" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sin asignar</SelectItem>
+                          {clinics.map((clinic) => (
+                            <SelectItem key={clinic.id} value={clinic.id}>
+                              {clinic.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <Button type="submit" disabled={creatingUser}>
-                  {creatingUser ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <UserPlus className="mr-2 h-4 w-4" />
-                  )}
-                  Crear usuario
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <p className="clinical-kicker">RBAC Map</p>
-            <CardTitle>Cómo se conectan los roles</CardTitle>
-            <CardDescription>
-              Vista resumida del flujo entre administración, docencia y resolución estudiantil.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(['admin', 'professor', 'student'] as const).map((role) => (
-              <div
-                key={role}
-                className="rounded-[1.2rem] border border-slate-200/80 bg-white/70 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{ROLE_PLAYBOOKS[role].title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {ROLE_PLAYBOOKS[role].summary}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      role === 'admin'
-                        ? 'destructive'
-                        : role === 'professor'
-                          ? 'default'
-                          : 'secondary'
-                    }
-                  >
-                    {ROLE_LABELS[role]}
-                  </Badge>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-slate-900">Módulos visibles</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {ROLE_PLAYBOOKS[role].modules.map((module) => (
-                      <Badge key={module} variant="outline">
-                        {module}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <p className="clinical-kicker">Users Registry</p>
-            <CardTitle>Gestión de usuarios</CardTitle>
-            <CardDescription>
-              Selecciona un usuario para revisar de forma rápida su RBAC y los módulos que verá
-              dentro de la plataforma.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-[1.2rem] border border-slate-200/80">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Clínica</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((profile) => {
-                      const roles = normalizeUserRoles(profile.role, profile.roles);
-                      return (
-                        <TableRow key={profile.uid} className="hover:bg-slate-50/80">
-                          <TableCell className="font-medium">{profile.displayName}</TableCell>
-                          <TableCell className="text-muted-foreground">{profile.email}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {roles.map((role) => (
-                                <Badge
-                                  key={`${profile.uid}-${role}`}
-                                  variant={
-                                    role === 'admin'
-                                      ? 'destructive'
-                                      : role === 'professor'
-                                        ? 'default'
-                                        : 'secondary'
-                                  }
-                                >
-                                  {ROLE_LABELS[role]}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {profile.clinicId ?? 'Sin asignar'}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant={selectedUid === profile.uid ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setSelectedUid(profile.uid)}
-                            >
-                              Ver RBAC
-                            </Button>
-                            {roles.includes('admin') && adminCount === 1 && user?.uid === profile.uid ? (
-                              <p className="mt-1 text-xs text-amber-700">
-                                Eres el único administrador actual.
-                              </p>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <p className="clinical-kicker">Access Preview</p>
-            <CardTitle>RBAC del usuario</CardTitle>
-            <CardDescription>
-              Resumen de lo que verá y hará el usuario seleccionado según sus roles.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!selectedUser ? (
-              <div className="rounded-[1.2rem] border border-dashed border-slate-200 bg-slate-50/70 px-4 py-7 text-sm text-muted-foreground">
-                Selecciona un usuario de la tabla para revisar su RBAC.
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/70 p-4">
-                  <p className="text-sm font-medium text-slate-900">Usuario</p>
-                  <p className="mt-2 text-sm text-slate-900">{selectedUser.displayName}</p>
-                  <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Roles activos</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {normalizeUserRoles(selectedUser.role, selectedUser.roles).map((role) => (
-                      <Badge
-                        key={role}
-                        variant={
-                          role === 'admin'
-                            ? 'destructive'
-                            : role === 'professor'
-                              ? 'default'
-                              : 'secondary'
-                        }
-                      >
-                        {ROLE_LABELS[role]}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {normalizeUserRoles(selectedUser.role, selectedUser.roles).map((role) => (
-                  <div
-                    key={role}
-                    className="rounded-[1.2rem] border border-slate-200/80 bg-white/70 p-4"
-                  >
-                    <p className="font-semibold text-slate-900">{ROLE_PLAYBOOKS[role].title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {ROLE_PLAYBOOKS[role].summary}
-                    </p>
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-slate-900">Módulos visibles</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {ROLE_PLAYBOOKS[role].modules.map((module) => (
-                          <Badge key={`${role}-${module}`} variant="outline">
-                            {module}
-                          </Badge>
+              <FormField
+                control={createForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rol principal</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        const nextRole = value as UserRole;
+                        field.onChange(nextRole);
+                        createForm.setValue(
+                          'roles',
+                          ensurePrimaryRoleIncluded(nextRole, createForm.getValues('roles'))
+                        );
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="max-w-[280px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {roleOptions.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {ROLE_LABELS[role]}
+                          </SelectItem>
                         ))}
-                      </div>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      El rol principal define el modo predominante de la cuenta.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={createForm.control}
+                name="roles"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Roles habilitados</FormLabel>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {roleOptions.map((role) => {
+                        const checked = field.value.includes(role);
+                        return (
+                          <label
+                            key={role}
+                            className="rounded-[1.1rem] border border-slate-200/80 bg-white/70 p-4 text-sm transition-all duration-200 hover:border-primary/25 hover:shadow-[0_20px_40px_-36px_rgba(15,23,42,0.6)]"
+                          >
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => {
+                                  const current = new Set(field.value);
+                                  if (value) current.add(role);
+                                  else current.delete(role);
+                                  current.add(createForm.getValues('role'));
+                                  field.onChange(Array.from(current));
+                                }}
+                              />
+                              <span>
+                                <span className="block font-medium text-slate-900">
+                                  {ROLE_LABELS[role]}
+                                </span>
+                                <span className="mt-1 block text-muted-foreground">
+                                  {ROLE_PLAYBOOKS[role].summary}
+                                </span>
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type="submit" disabled={creatingUser}>
+                {creatingUser ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <UserPlus className="mr-2 h-4 w-4" />
+                )}
+                Crear usuario
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Gestión de usuarios</CardTitle>
+          <CardDescription>
+            Revisa los usuarios registrados, sus roles y la clínica asignada.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-[1.2rem] border border-slate-200/80">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>Clínica</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((profile) => {
+                    const roles = normalizeUserRoles(profile.role, profile.roles);
+                    return (
+                      <TableRow key={profile.uid} className="hover:bg-slate-50/80">
+                        <TableCell className="font-medium">{profile.displayName}</TableCell>
+                        <TableCell className="text-muted-foreground">{profile.email}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {roles.map((role) => (
+                              <Badge
+                                key={`${profile.uid}-${role}`}
+                                variant={
+                                  role === 'admin'
+                                    ? 'destructive'
+                                    : role === 'professor'
+                                      ? 'default'
+                                      : 'secondary'
+                                }
+                              >
+                                {ROLE_LABELS[role]}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {profile.clinicId ?? 'Sin asignar'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {roles.includes('admin') && adminCount === 1 && user?.uid === profile.uid ? (
+                            <p className="text-xs text-amber-700">
+                              Eres el único administrador actual.
+                            </p>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

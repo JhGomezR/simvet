@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import { attemptsRepo, casesRepo } from '@/lib/repositories';
-import { normalizeUserRoles, ROLE_PLAYBOOKS } from '@/lib/rbac';
 import type { Attempt, Case, ClinicalCase } from '@/lib/types';
 
 function computeDashboardMetrics(attempts: Attempt[], availableCases: ClinicalCase[]) {
@@ -167,13 +166,6 @@ export default function DashboardPage() {
     [profile]
   );
   const showProfessorSections = roles.has('professor') || roles.has('admin');
-  const rolePlaybooks = useMemo(
-    () =>
-      normalizeUserRoles(profile?.role, profile?.roles)
-        .map((role) => ROLE_PLAYBOOKS[role])
-        .filter(Boolean),
-    [profile]
-  );
 
   if (loading || !profile) {
     return (
@@ -195,63 +187,11 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 py-2">
-      <Card className="overflow-hidden">
-        <CardHeader className="relative">
-          <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-          <p className="clinical-kicker">Role Briefing</p>
-          <CardTitle>Tu espacio operativo en SimVet</CardTitle>
-          <CardDescription>
-            Este panel resume qué debes hacer dentro de la plataforma según los roles activos de tu
-            cuenta.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {loadError ? (
-            <div className="rounded-[1rem] border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900">
-              {loadError}
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 xl:grid-cols-3">
-            {rolePlaybooks.map((playbook) => (
-              <div
-                key={playbook.role}
-                className="rounded-[1.35rem] border border-slate-200/80 bg-white/75 p-5 shadow-[0_20px_45px_-35px_rgba(15,23,42,0.55)] transition-all duration-200 hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.18em] text-primary/70">
-                      {playbook.title}
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{playbook.summary}</p>
-                  </div>
-                  <Badge
-                    variant={
-                      playbook.role === 'admin'
-                        ? 'destructive'
-                        : playbook.role === 'professor'
-                          ? 'default'
-                          : 'secondary'
-                    }
-                  >
-                    {playbook.title}
-                  </Badge>
-                </div>
-                <div className="mt-5 space-y-2">
-                  {playbook.responsibilities.slice(0, 3).map((item) => (
-                    <div
-                      key={item}
-                      className="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-3 py-2 text-sm text-slate-700"
-                    >
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {loadError ? (
+        <div className="rounded-[1rem] border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900">
+          {loadError}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Nivel Actual" value={metrics.level} icon={GraduationCap} />
@@ -283,7 +223,6 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <p className="clinical-kicker">Published Simulations</p>
           <CardTitle>Casos disponibles</CardTitle>
           <CardDescription>
             Casos clínicos publicados por docentes y listos para practicar con enfoque de triage.
@@ -335,7 +274,6 @@ export default function DashboardPage() {
         <div className="grid gap-6 xl:grid-cols-2">
           <Card>
             <CardHeader>
-              <p className="clinical-kicker">Teacher Lens</p>
               <CardTitle>Casos publicados por tu cuenta</CardTitle>
               <CardDescription>
                 Aquí ves los casos que ya quedaron visibles para el flujo de simulación.
@@ -368,7 +306,6 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <p className="clinical-kicker">Teacher Feedback Loop</p>
               <CardTitle>Historial de pruebas y validación</CardTitle>
               <CardDescription>
                 Simulaciones completadas con esta misma cuenta para revisar comportamiento y
@@ -391,7 +328,6 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <p className="clinical-kicker">Learning Trace</p>
           <CardTitle>
             {showProfessorSections
               ? 'Historial personal de simulaciones'
