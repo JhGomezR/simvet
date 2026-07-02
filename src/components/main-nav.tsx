@@ -61,7 +61,7 @@ export function MainNav() {
   });
 
   return (
-    <nav className="grid items-start px-2 text-sm font-medium">
+    <nav className="grid items-start gap-2 px-2 text-sm font-medium">
       <TooltipProvider>
         {visibleItems.map(({ href, icon: Icon, label }) => {
           const isActive = pathname === href || (href.startsWith('/simulacion') && pathname.startsWith('/simulacion'));
@@ -71,12 +71,19 @@ export function MainNav() {
                 <Link
                   href={href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-                    isActive && "bg-muted text-primary"
+                    "group flex items-center gap-3 rounded-2xl px-4 py-3 text-slate-500 transition-all duration-200 ease-in-out hover:bg-white hover:text-slate-900 hover:shadow-[0_12px_30px_-24px_rgba(15,23,42,0.45)]",
+                    isActive && "clinical-glow bg-white text-slate-900 shadow-[0_16px_35px_-26px_rgba(15,23,42,0.42)]"
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  {label}
+                  <div
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition-colors duration-200 group-hover:bg-primary/10 group-hover:text-primary",
+                      isActive && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <span className="truncate">{label}</span>
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right">

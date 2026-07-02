@@ -273,7 +273,8 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
     const finalScore = academicMetrics.score;
 
     const recommendedTreatments =
-      clinicalCase.treatmentPlan?.filter((item) => item.isRecommended).map((item) => item.name) ?? [];
+      clinicalCase.treatmentPlan?.filter((item) => item.isRecommended).map((item) => item.name) ??
+      [];
     const correctDecisions = studentActions.slice(0, 4);
     const criticalErrors = recommendedTreatments
       .filter(
@@ -327,40 +328,50 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
   }
 
   return (
-    <div className="w-full space-y-4">
-      <div className="flex items-center justify-between rounded-lg border bg-card p-2">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded bg-primary p-2 font-mono text-xl font-bold text-primary-foreground">
-            <Clock className="h-6 w-6" />
-            <span>{formatTime(simTime)}</span>
+    <div className="w-full space-y-5">
+      <div className="clinical-panel flex flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 rounded-[1.15rem] bg-slate-950 px-4 py-3 text-white shadow-[0_16px_35px_-24px_rgba(15,23,42,0.9)]">
+            <Clock className="h-5 w-5 text-cyan-300" />
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-300">Tiempo</p>
+              <p className="font-mono text-xl font-semibold">{formatTime(simTime)}</p>
+            </div>
           </div>
-          <div className="hidden items-center gap-2 font-semibold text-destructive md:flex">
-            <AlertTriangle className="h-5 w-5" />
-            <span>EL PACIENTE PUEDE FALLECER SI NO SE ACTÚA</span>
+          <div className="rounded-[1.15rem] border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4" />
+              El paciente puede deteriorarse si no se actúa a tiempo
+            </div>
+            <p className="mt-1 text-amber-800/90">
+              Evalúa, estabiliza y decide con criterio antes de solicitar o tratar.
+            </p>
           </div>
         </div>
+
         <Button size="lg" onClick={() => void handleFinalize()} disabled={generatingFeedback}>
-          {generatingFeedback && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Finalizar Caso y Evaluar
+          {generatingFeedback ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Finalizar caso y evaluar
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-3">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
+        <div className="space-y-6 xl:col-span-3">
           <PatientInfoPanel patient={clinicalCase.patient} caseInfo={clinicalCase} />
           <AcademicProgressPanel metrics={academicMetrics} />
-          {questions.length > 0 && (
+          {questions.length > 0 ? (
             <Card>
               <CardHeader>
+                <p className="clinical-kicker">Case Reflection</p>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <HelpCircle className="h-4 w-4" />
+                  <HelpCircle className="h-4 w-4 text-primary" />
                   Preguntas del caso
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {questions.map((question, index) => (
-                  <div key={question.id} className="space-y-1.5">
-                    <Label htmlFor={`q-${question.id}`} className="text-sm">
+                  <div key={question.id} className="space-y-2">
+                    <Label htmlFor={`q-${question.id}`} className="text-sm leading-6">
                       {index + 1}. {question.prompt}
                     </Label>
                     <Textarea
@@ -369,17 +380,17 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
                       onChange={(e) =>
                         setStudentAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
                       }
-                      placeholder="Tu respuesta..."
-                      className="min-h-[64px] text-sm"
+                      placeholder="Escribe tu criterio clínico..."
+                      className="min-h-[84px] text-sm"
                     />
                   </div>
                 ))}
               </CardContent>
             </Card>
-          )}
+          ) : null}
         </div>
 
-        <div className="lg:col-span-5">
+        <div className="xl:col-span-5">
           <DecisionPanel
             onAction={handleAction}
             completedSteps={completedSteps}
@@ -388,7 +399,7 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
           />
         </div>
 
-        <div className="lg:col-span-4">
+        <div className="xl:col-span-4">
           <VitalsMonitor vitalsHistory={vitalsHistory} status={patientStatus} />
         </div>
       </div>

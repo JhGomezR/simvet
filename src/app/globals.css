@@ -4,75 +4,125 @@
 
 @layer base {
   :root {
-    --background: 0 0% 94%;
-    --foreground: 222 47% 11%;
+    --background: 210 33% 97%;
+    --foreground: 215 39% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 215 39% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 199 76% 53%;
+    --popover-foreground: 215 39% 14%;
+    --primary: 199 77% 41%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 222 47% 11%;
-    --accent: 193 92% 77%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 196 30% 94%;
+    --secondary-foreground: 215 39% 18%;
+    --muted: 204 24% 94%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 164 42% 88%;
+    --accent-foreground: 165 55% 18%;
+    --destructive: 0 74% 56%;
     --destructive-foreground: 210 40% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 199 76% 53%;
-    --radius: 0.5rem;
-    --chart-1: 199 76% 53%;
-    --chart-2: 193 92% 77%;
-    --chart-3: 210 40% 98%;
-    --chart-4: 222 47% 11%;
-    --chart-5: 0 84% 60%;
-
-    --status-stable: 142 76% 36%;
-    --status-stable-foreground: 142 80% 96%;
+    --border: 204 22% 86%;
+    --input: 204 22% 86%;
+    --ring: 199 77% 41%;
+    --radius: 1rem;
+    --chart-1: 199 77% 41%;
+    --chart-2: 168 58% 39%;
+    --chart-3: 212 79% 62%;
+    --chart-4: 40 94% 58%;
+    --chart-5: 0 74% 56%;
+    --status-stable: 155 62% 36%;
+    --status-stable-foreground: 150 60% 96%;
     --status-unstable: 38 92% 50%;
     --status-unstable-foreground: 38 92% 10%;
-    --status-critical: 0 84.2% 60.2%;
+    --status-critical: 0 74% 56%;
     --status-critical-foreground: 210 40% 98%;
   }
- 
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 199 76% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 193 92% 77%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 199 76% 53%;
 
-    --status-stable: 142 71% 21%;
-    --status-stable-foreground: 142 80% 96%;
+  .dark {
+    --background: 215 32% 11%;
+    --foreground: 210 40% 98%;
+    --card: 214 28% 15%;
+    --card-foreground: 210 40% 98%;
+    --popover: 214 28% 15%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 196 76% 52%;
+    --primary-foreground: 215 32% 11%;
+    --secondary: 217 24% 19%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 24% 19%;
+    --muted-foreground: 214 20% 72%;
+    --accent: 160 30% 24%;
+    --accent-foreground: 154 70% 93%;
+    --destructive: 0 63% 38%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 21% 22%;
+    --input: 217 21% 22%;
+    --ring: 196 76% 52%;
+    --status-stable: 150 52% 32%;
+    --status-stable-foreground: 150 60% 96%;
     --status-unstable: 38 92% 50%;
     --status-unstable-foreground: 38 92% 10%;
-    --status-critical: 0 63% 31%;
+    --status-critical: 0 63% 38%;
     --status-critical-foreground: 210 40% 98%;
   }
 }
- 
+
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    @apply scroll-smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply min-h-screen bg-background font-body text-foreground;
+    background-image:
+      radial-gradient(circle at top left, hsl(196 82% 92% / 0.95), transparent 28%),
+      radial-gradient(circle at top right, hsl(164 53% 91% / 0.85), transparent 22%),
+      linear-gradient(180deg, hsl(210 33% 98%) 0%, hsl(210 29% 96%) 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-headline tracking-tight text-slate-900;
   }
 }
+
+@layer components {
+  .clinical-shell {
+    @apply relative overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/80 shadow-[0_20px_80px_-42px_rgba(15,23,42,0.35)] backdrop-blur-xl;
+  }
+
+  .clinical-panel {
+    @apply animate-fade-up rounded-[1.25rem] border border-white/70 bg-white/88 shadow-[0_16px_45px_-34px_rgba(15,23,42,0.45)] backdrop-blur-md;
+  }
+
+  .clinical-grid {
+    @apply grid gap-4 md:gap-5 xl:gap-6;
+  }
+
+  .clinical-section-title {
+    @apply text-lg font-semibold text-slate-900 md:text-xl;
+  }
+
+  .clinical-kicker {
+    @apply text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-primary/75;
+  }
+
+  .clinical-mesh {
+    background-image:
+      linear-gradient(hsl(204 28% 90% / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(204 28% 90% / 0.5) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+
+  .clinical-glow {
+    box-shadow:
+      0 18px 46px -28px rgba(13, 148, 200, 0.38),
+      0 10px 24px -18px rgba(16, 185, 129, 0.28);
+  }
+}
+
