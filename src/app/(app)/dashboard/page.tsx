@@ -64,13 +64,30 @@ export default function DashboardPage() {
         const roles = new Set(profile.roles ?? [profile.role]);
         const isProfessor = roles.has('professor') || roles.has('admin');
 
-        const attempts = await attemptsRepo.listByStudent(user.uid);
+        const attempts = await attemptsRepo.listByStudent(user.uid).catch((err) => {
+          console.error('No se pudo cargar el historial de intentos del dashboard:', err);
+          return [];
+        });
         const caseIds = Array.from(new Set(attempts.map((attempt) => attempt.caseId)));
-        const [publishedCases, relatedCases, professorCases, professorAttempts] = await Promise.all([
-          casesRepo.listPublished({ limit: 20 }),
-          Promise.all(caseIds.map((caseId) => casesRepo.getById(caseId))),
-          isProfessor ? casesRepo.listByAuthor(user.uid) : Promise.resolve([]),
-          isProfessor ? attemptsRepo.listByStudent(user.uid).catch(() => []) : Promise.resolve([]),
+        const [publishedCases, relatedCases, professorCases] = await Promise.all([
+          casesRepo.listPublished({ limit: 20 }).catch((err) => {
+            console.error('No se pudieron cargar los casos publicados del dashboard:', err);
+            return [];
+          }),
+          Promise.all(
+            caseIds.map((caseId) =>
+              casesRepo.getById(caseId).catch((err) => {
+                console.error(`No se pudo cargar el caso relacionado ${caseId}:`, err);
+                return null;
+              })
+            )
+          ),
+          isProfessor
+            ? casesRepo.listByAuthor(user.uid).catch((err) => {
+                console.error('No se pudieron cargar los casos del profesor en el dashboard:', err);
+                return [];
+              })
+            : Promise.resolve([]),
         ]);
 
         const caseMap = new Map<string, ClinicalCase>();
@@ -95,7 +112,7 @@ export default function DashboardPage() {
 
         if (isProfessor) {
           const ownCaseMap = new Map(professorCases.map((item) => [item.id, item] as const));
-          const enrichedProfessorHistory: Case[] = professorAttempts.map((attempt) => ({
+          const enrichedProfessorHistory: Case[] = attempts.map((attempt) => ({
             id: attempt.id,
             name: ownCaseMap.get(attempt.caseId)?.name ?? attempt.caseId,
             date: new Date(attempt.startedAt).toISOString().slice(0, 10),
