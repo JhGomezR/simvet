@@ -39,7 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Users, BookOpen, Loader2, UserPlus, GraduationCap } from 'lucide-react';
+import { ShieldCheck, Users, BookOpen, Loader2, UserPlus, GraduationCap, RefreshCcw } from 'lucide-react';
 import type { Clinic, UserProfile, UserRole } from '@/lib/types';
 
 const roleOptions = ['student', 'professor', 'admin', 'veterinarian', 'assistant'] as const;
@@ -201,6 +201,15 @@ export default function AdminPage() {
             values.role
           ].toLowerCase()}.`,
       });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'No se pudo completar la creación',
+        description:
+          err instanceof Error
+            ? err.message
+            : 'La cuenta pudo crearse parcialmente. Recarga el panel y verifica si el perfil aparece.',
+      });
     } finally {
       setCreatingUser(false);
     }
@@ -216,6 +225,10 @@ export default function AdminPage() {
             Crea cuentas, define roles y revisa el RBAC visible para cada tipo de usuario.
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => void loadData()}>
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Recargar
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -256,6 +269,12 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-dashed">
+        <CardContent className="pt-6 text-sm text-muted-foreground">
+          Los conteos de esta pantalla se basan en perfiles guardados en Firestore. Si un usuario ya inició sesión pero aún no aparece aquí, usa `Recargar` para volver a sincronizar la lista.
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <Card>

@@ -58,10 +58,12 @@ export default function DashboardPage() {
   const [professorPublishedCases, setProfessorPublishedCases] = useState<ClinicalCase[]>([]);
   const [professorHistory, setProfessorHistory] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       if (!user || !profile) return;
+      setLoadError(null);
       try {
         const roles = new Set(profile.roles ?? [profile.role]);
         const isProfessor = roles.has('professor') || roles.has('admin');
@@ -132,11 +134,23 @@ export default function DashboardPage() {
         }
       } catch (err) {
         console.error('Error cargando dashboard:', err);
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'No se pudo cargar por completo el dashboard.'
+        );
       } finally {
         setLoading(false);
       }
     };
+
+    const timeoutId = window.setTimeout(() => {
+      setLoading(false);
+      setLoadError((current) => current ?? 'La carga del dashboard tardó demasiado. Se mostrará el contenido disponible.');
+    }, 8000);
+
     void load();
+    return () => window.clearTimeout(timeoutId);
   }, [user, profile]);
 
   const metrics = useMemo(
@@ -171,6 +185,11 @@ export default function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {loadError ? (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {loadError}
+            </div>
+          ) : null}
           <div className="grid gap-4 lg:grid-cols-3">
             {rolePlaybooks.map((playbook) => (
               <div key={playbook.role} className="rounded-lg border p-4">
