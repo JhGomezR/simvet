@@ -1,6 +1,6 @@
 'use server';
 
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb, getAdminSetupHint } from '@/lib/firebase-admin';
 import type { UserRole } from '@/lib/types';
 
 type CreateManagedUserInput = {
@@ -38,8 +38,7 @@ export async function createManagedUserAction(
   if (!adminAuth || !adminDb) {
     return {
       ok: false,
-      error:
-        'Firebase Admin no esta configurado en el servidor. Agrega la cuenta de servicio para crear usuarios desde administracion.',
+      error: `Firebase Admin no esta configurado en el servidor. ${getAdminSetupHint()} En Vercel agrega esas variables en Project Settings -> Environment Variables y redepliega.`,
     };
   }
 
@@ -95,4 +94,3 @@ export async function createManagedUserAction(
     return { ok: false, error: message };
   }
 }
-

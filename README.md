@@ -41,6 +41,22 @@ GEMINI_API_KEY=...
 GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
 ```
 
+Para despliegues en Vercel, además de las variables `NEXT_PUBLIC_FIREBASE_*`, configura una de estas opciones de servidor:
+
+```env
+FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n","client_email":"...","client_id":"..."}
+```
+
+o bien:
+
+```env
+FIREBASE_PROJECT_ID=...
+FIREBASE_CLIENT_EMAIL=...
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+Después de agregar estas variables en Vercel: `Project Settings -> Environment Variables`, haz un redeploy.
+
 Habilita en la consola de Firebase:
 - **Firestore Database** (modo producción)
 - **Authentication** → Email/Password (y opcionalmente Google)

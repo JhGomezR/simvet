@@ -19,6 +19,20 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 let cachedDb: Firestore | null | undefined;
 let cachedAuth: Auth | null | undefined;
 
+function fromSplitEnv() {
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  if (!projectId || !clientEmail || !privateKey) return null;
+
+  return {
+    projectId,
+    clientEmail,
+    privateKey,
+  };
+}
+
 function initAdmin(): App | null {
   if (getApps().length > 0) return getApps()[0];
 
@@ -27,6 +41,10 @@ function initAdmin(): App | null {
     if (inlineJson) {
       const parsed = JSON.parse(inlineJson);
       return initializeApp({ credential: cert(parsed) });
+    }
+    const splitEnv = fromSplitEnv();
+    if (splitEnv) {
+      return initializeApp({ credential: cert(splitEnv) });
     }
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
       return initializeApp({ credential: applicationDefault() });
@@ -53,4 +71,13 @@ export function getAdminAuth(): Auth | null {
   const app = initAdmin();
   cachedAuth = app ? getAuth(app) : null;
   return cachedAuth;
+}
+
+export function getAdminSetupHint(): string {
+  return [
+    'Configura Firebase Admin en el servidor con una de estas opciones:',
+    '1. FIREBASE_SERVICE_ACCOUNT con el JSON completo de la cuenta de servicio.',
+    '2. FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY.',
+    '3. GOOGLE_APPLICATION_CREDENTIALS apuntando a service-account.json en entorno local.',
+  ].join(' ');
 }

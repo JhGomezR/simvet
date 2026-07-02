@@ -297,6 +297,24 @@ export default function AdminPage() {
         </Card>
       </div>
 
+      <Card className="border-amber-200 bg-amber-50/60">
+        <CardHeader>
+          <CardTitle className="text-amber-900">Requisito para crear usuarios desde administración</CardTitle>
+          <CardDescription className="text-amber-800">
+            Esta función depende de Firebase Admin corriendo en el servidor. Si estás en Vercel,
+            configura credenciales del servicio y vuelve a desplegar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-amber-900">
+          <p>Opciones soportadas por el proyecto:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li><code>FIREBASE_SERVICE_ACCOUNT</code> con el JSON completo de la cuenta de servicio.</li>
+            <li><code>FIREBASE_PROJECT_ID</code>, <code>FIREBASE_CLIENT_EMAIL</code> y <code>FIREBASE_PRIVATE_KEY</code>.</li>
+            <li>En local: <code>GOOGLE_APPLICATION_CREDENTIALS=./service-account.json</code>.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <Card>
           <CardHeader>
@@ -746,4 +764,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
