@@ -5,6 +5,7 @@ import { Activity, GraduationCap, Loader2, Percent } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { CaseHistoryTable } from '@/components/dashboard/case-history-table';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import { attemptsRepo, casesRepo } from '@/lib/repositories';
+import { normalizeUserRoles, ROLE_PLAYBOOKS } from '@/lib/rbac';
 import type { Attempt, Case, ClinicalCase } from '@/lib/types';
 
 function computeDashboardMetrics(attempts: Attempt[], availableCases: ClinicalCase[]) {
@@ -143,6 +145,13 @@ export default function DashboardPage() {
   );
   const roles = useMemo(() => new Set(profile?.roles ?? (profile ? [profile.role] : [])), [profile]);
   const showProfessorSections = roles.has('professor') || roles.has('admin');
+  const rolePlaybooks = useMemo(
+    () =>
+      normalizeUserRoles(profile?.role, profile?.roles)
+        .map((role) => ROLE_PLAYBOOKS[role])
+        .filter(Boolean),
+    [profile]
+  );
 
   if (loading || !profile) {
     return (
@@ -154,6 +163,46 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 py-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tu espacio según rol</CardTitle>
+          <CardDescription>
+            Este panel resume qué debes hacer dentro de SimVet con la cuenta que tienes activa.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {rolePlaybooks.map((playbook) => (
+              <div key={playbook.role} className="rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium">{playbook.title}</p>
+                  <Badge
+                    variant={
+                      playbook.role === 'admin'
+                        ? 'destructive'
+                        : playbook.role === 'professor'
+                          ? 'default'
+                          : 'secondary'
+                    }
+                  >
+                    {playbook.title}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{playbook.summary}</p>
+                <div className="mt-4">
+                  <p className="text-sm font-medium">Qué debes hacer</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {playbook.responsibilities.slice(0, 3).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Nivel Actual" value={metrics.level} icon={GraduationCap} />
         <StatCard title="Score Promedio" value={`${metrics.averageScore}%`} icon={Percent} />

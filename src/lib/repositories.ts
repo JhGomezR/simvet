@@ -198,4 +198,44 @@ export const usersRepo = {
       updatedAt: Date.now(),
     });
   },
+
+  async updateAccess(
+    uid: string,
+    data: {
+      role: UserRole;
+      roles: UserRole[];
+      clinicId?: string;
+      displayName?: string;
+      mustChangePassword?: boolean;
+    }
+  ): Promise<void> {
+    const profile = await this.getProfile(uid);
+    if (!profile) {
+      throw new Error('No se encontro el usuario a actualizar.');
+    }
+
+    const requestedRoles = new Set<UserRole>([...data.roles, data.role]);
+    const currentlyAdmin =
+      (profile.roles ?? [profile.role]).includes('admin') || profile.role === 'admin';
+    const willRemainAdmin = requestedRoles.has('admin');
+
+    if (currentlyAdmin && !willRemainAdmin) {
+      const admins = await this.listAdmins();
+      if (admins.length <= 1) {
+        throw new Error(
+          'No puedes quitar el rol al unico administrador. Promueve otro admin primero.'
+        );
+      }
+    }
+
+    const nextRoles = Array.from(requestedRoles);
+    await updateDoc(doc(db, 'users', uid), stripUndefined({
+      role: data.role,
+      roles: nextRoles,
+      clinicId: data.clinicId || undefined,
+      displayName: data.displayName || profile.displayName,
+      mustChangePassword: data.mustChangePassword,
+      updatedAt: Date.now(),
+    }));
+  },
 };

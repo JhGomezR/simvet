@@ -13,9 +13,11 @@
  * dependen de él degradan con gracia (no rompen la app).
  */
 import { getApps, initializeApp, cert, applicationDefault, type App } from 'firebase-admin/app';
+import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 let cachedDb: Firestore | null | undefined;
+let cachedAuth: Auth | null | undefined;
 
 function initAdmin(): App | null {
   if (getApps().length > 0) return getApps()[0];
@@ -43,4 +45,12 @@ export function getAdminDb(): Firestore | null {
   const app = initAdmin();
   cachedDb = app ? getFirestore(app) : null;
   return cachedDb;
+}
+
+/** Devuelve la instancia de Auth admin, o null si no hay credenciales. */
+export function getAdminAuth(): Auth | null {
+  if (cachedAuth !== undefined) return cachedAuth;
+  const app = initAdmin();
+  cachedAuth = app ? getAuth(app) : null;
+  return cachedAuth;
 }
