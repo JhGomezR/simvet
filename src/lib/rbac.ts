@@ -4,6 +4,7 @@ export type RolePlaybook = {
   role: UserRole;
   title: string;
   summary: string;
+  modules: string[];
   responsibilities: string[];
   handoff: string[];
 };
@@ -21,6 +22,7 @@ export const ROLE_PLAYBOOKS: Record<UserRole, RolePlaybook> = {
     role: 'admin',
     title: 'Administrador',
     summary: 'Configura la plataforma, crea usuarios, asigna roles y asegura que el flujo académico-clínico funcione.',
+    modules: ['Dashboard', 'Administración', 'Configuración', 'Modo Profesor', 'Simulación', 'Módulo Clínico'],
     responsibilities: [
       'Crear cuentas y definir rol principal y roles complementarios.',
       'Mantener la configuración global, clínicas y permisos operativos del sistema.',
@@ -35,6 +37,7 @@ export const ROLE_PLAYBOOKS: Record<UserRole, RolePlaybook> = {
     role: 'professor',
     title: 'Docente',
     summary: 'Diseña casos clínicos y simulaciones basadas en historias clínicas para el entrenamiento académico.',
+    modules: ['Dashboard', 'Modo Profesor', 'Crear Caso', 'Simulación', 'Historias IA', 'Búsqueda IA'],
     responsibilities: [
       'Subir historias clínicas, generar simulaciones y publicarlas para sus estudiantes.',
       'Definir el nivel del caso, las decisiones esperadas y los criterios de evaluación.',
@@ -49,6 +52,7 @@ export const ROLE_PLAYBOOKS: Record<UserRole, RolePlaybook> = {
     role: 'student',
     title: 'Estudiante',
     summary: 'Resuelve casos publicados, toma decisiones clínicas y aprende a partir del feedback.',
+    modules: ['Dashboard', 'Simulación', 'Historial personal', 'Feedback'],
     responsibilities: [
       'Ingresar a los casos disponibles y completar el ABCDE, anamnesis, examen, pruebas y tratamiento.',
       'Responder las preguntas del caso con sustento clínico.',
@@ -63,6 +67,7 @@ export const ROLE_PLAYBOOKS: Record<UserRole, RolePlaybook> = {
     role: 'veterinarian',
     title: 'Veterinario',
     summary: 'Gestiona información clínica real y valida el criterio médico sobre pacientes reales.',
+    modules: ['Dashboard', 'Módulo Clínico', 'Historias IA', 'Búsqueda IA'],
     responsibilities: [
       'Registrar actos clínicos, consultas, fórmulas, laboratorio y documentos del paciente.',
       'Asegurar que la información usada como base de conocimiento sea clínicamente válida.',
@@ -76,6 +81,7 @@ export const ROLE_PLAYBOOKS: Record<UserRole, RolePlaybook> = {
     role: 'assistant',
     title: 'Auxiliar',
     summary: 'Apoya el registro operativo y documental de la clínica para mantener el historial completo.',
+    modules: ['Dashboard', 'Propietarios', 'Mascotas', 'Documentos clínicos', 'Historias IA'],
     responsibilities: [
       'Cargar documentos, mantener datos de pacientes y apoyar la organización del expediente.',
       'Actualizar información operativa sin invadir decisiones médicas reservadas.',
@@ -90,4 +96,3 @@ export const ROLE_PLAYBOOKS: Record<UserRole, RolePlaybook> = {
 export function normalizeUserRoles(role?: UserRole | null, roles?: UserRole[] | null): UserRole[] {
   return Array.from(new Set([...(roles ?? []), ...(role ? [role] : [])]));
 }
-

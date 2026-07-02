@@ -8,6 +8,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  setDoc,
   addDoc,
   deleteDoc,
   query,
@@ -166,6 +167,10 @@ export const usersRepo = {
 
     const legacySnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'admin')));
     return legacySnap.docs.map((d) => d.data() as UserProfile);
+  },
+
+  async createManagedProfile(profile: UserProfile): Promise<void> {
+    await setDoc(doc(db, 'users', profile.uid), stripUndefined(profile));
   },
 
   async updateRole(uid: string, role: 'student' | 'professor' | 'admin'): Promise<void> {

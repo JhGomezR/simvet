@@ -181,6 +181,25 @@ export default function AdminPage() {
         return;
       }
 
+      if (!result.profileCreatedOnServer) {
+        const now = Date.now();
+        await usersRepo.createManagedProfile({
+          uid: result.uid,
+          email: result.email,
+          displayName: values.displayName,
+          role: values.role,
+          roles: ensurePrimaryRoleIncluded(values.role, values.roles),
+          clinicId: values.clinicId || undefined,
+          mustChangePassword: true,
+          level: 'Básico',
+          academicProgress: 0,
+          averageScore: 0,
+          triagePerformance: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
       setCreatedCredentials({
         email: result.email,
         temporaryPassword: result.temporaryPassword,
@@ -197,7 +216,9 @@ export default function AdminPage() {
       setSelectedUid(result.uid);
       toast({
         title: 'Usuario creado',
-        description: 'La cuenta quedó registrada con acceso inicial y cambio obligatorio de contraseña.',
+        description:
+          result.warning ??
+          'La cuenta quedó registrada con acceso inicial y cambio obligatorio de contraseña.',
       });
     } finally {
       setCreatingUser(false);
@@ -513,6 +534,16 @@ export default function AdminPage() {
                   </Badge>
                 </div>
                 <div className="mt-3 space-y-2 text-sm">
+                  <div>
+                    <p className="font-medium">Módulos / RBAC visibles</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {ROLE_PLAYBOOKS[role].modules.map((module) => (
+                        <Badge key={module} variant="outline">
+                          {module}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                   <div>
                     <p className="font-medium">Responsabilidades</p>
                     <ul className="list-disc pl-5 text-muted-foreground">
