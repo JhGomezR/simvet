@@ -1,15 +1,13 @@
 'use client';
 
 /**
- * AuthContext — provee el usuario logueado y su perfil (con rol) a toda la app.
+ * AuthContext - provee el usuario logueado y su perfil a toda la app.
  *
- * Uso:
- *   const { user, profile, role, loading, signIn, signOut } = useAuth();
- *
- * Carga inicial:
- * 1. onAuthStateChanged dispara cuando Firebase resuelve la sesión.
- * 2. Si hay usuario, leemos users/{uid} para conocer el rol.
- * 3. Si el doc no existe (primer login), lo creamos con role: 'student'.
+ * Comportamiento:
+ * 1. Espera a Firebase Auth.
+ * 2. Intenta leer users/{uid} para conocer rol y metadatos.
+ * 3. Si falla Firestore o el perfil no existe, levanta un perfil minimo
+ *    en memoria para no dejar la app en blanco.
  */
 import {
   createContext,
@@ -26,9 +24,22 @@ import {
   signOut as fbSignOut,
   type User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile, UserRole } from '@/lib/types';
+
+interface AuthContextValue {
+  user: User | null;
+  profile: UserProfile | null;
+  role: UserRole | null;
+  roles: UserRole[];
+  loading: boolean;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function mapAuthErrorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err ?? '');
@@ -46,18 +57,23 @@ function mapAuthErrorMessage(err: unknown): string {
   return message || 'No se pudo iniciar sesión.';
 }
 
-interface AuthContextValue {
-  user: User | null;
-  profile: UserProfile | null;
-  role: UserRole | null;
-  roles: UserRole[];
-  loading: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
+function buildFallbackProfile(fbUser: User): UserProfile {
+  return {
+    uid: fbUser.uid,
+    email: fbUser.email ?? '',
+    displayName: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? 'Usuario',
+    role: 'student',
+    roles: ['student'],
+    avatarUrl: fbUser.photoURL ?? undefined,
+    mustChangePassword: false,
+    level: 'Básico',
+    academicProgress: 0,
+    averageScore: 0,
+    triagePerformance: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
 }
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -67,44 +83,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       setUser(fbUser);
+
       if (!fbUser) {
         setProfile(null);
         setLoading(false);
         return;
       }
 
-      // Cargar (o crear) el perfil
-      const ref = doc(db, 'users', fbUser.uid);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const profileData = snap.data() as UserProfile;
-        const normalizedProfile: UserProfile = {
-          ...profileData,
-          roles: Array.from(new Set(profileData.roles ?? [profileData.role])),
-        };
-        setProfile(normalizedProfile);
-      } else {
-        // Auto-creación de perfil para nuevos signups con rol 'student' por defecto
-        const newProfile: UserProfile = {
-          uid: fbUser.uid,
-          email: fbUser.email ?? '',
-          displayName: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? 'Usuario',
-          role: 'student',
-          roles: ['student'],
-          avatarUrl: fbUser.photoURL ?? undefined,
-          mustChangePassword: false,
-          level: 'Básico',
-          academicProgress: 0,
-          averageScore: 0,
-          triagePerformance: 0,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        await setDoc(ref, newProfile);
-        setProfile(newProfile);
+      const fallbackProfile = buildFallbackProfile(fbUser);
+
+      try {
+        const ref = doc(db, 'users', fbUser.uid);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const profileData = snap.data() as UserProfile;
+          setProfile({
+            ...fallbackProfile,
+            ...profileData,
+            roles: Array.from(new Set(profileData.roles ?? [profileData.role])),
+          });
+        } else {
+          try {
+            await setDoc(ref, fallbackProfile);
+          } catch (writeErr) {
+            console.error('[auth] No se pudo crear el perfil inicial en Firestore:', writeErr);
+          }
+          setProfile(fallbackProfile);
+        }
+      } catch (err) {
+        console.error('[auth] No se pudo resolver el perfil del usuario:', err);
+        setProfile(fallbackProfile);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
+
     return () => unsub();
   }, []);
 
@@ -148,3 +162,4 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider');
   return ctx;
 }
+
