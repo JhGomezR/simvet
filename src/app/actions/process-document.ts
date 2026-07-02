@@ -11,9 +11,6 @@
  * Degrada con gracia: si no hay Admin SDK (sin credenciales), igual devuelve la
  * extracción para que el cliente la muestre/guarde; sólo se omite el indexado vectorial.
  */
-import { ai } from '@/ai/genkit';
-import { extractClinicalData } from '@/ai/flows/extract-clinical-data';
-import { embedText } from '@/ai/embeddings';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { ClinicalExtraction, ClinicalFileType } from '@/lib/types';
@@ -98,6 +95,7 @@ function chunkText(text: string, size = 1000, overlap = 150): string[] {
 }
 
 async function ocrFromFile(dataUri: string, contentType?: string): Promise<string> {
+  const { ai } = await import('@/ai/genkit');
   const res = await ai.generate({
     prompt: [
       { media: { url: dataUri, contentType } },
@@ -167,6 +165,7 @@ export async function processDocumentAction(
     let extraction: ClinicalExtraction;
     let queuedForAi = false;
     try {
+      const { extractClinicalData } = await import('@/ai/flows/extract-clinical-data');
       extraction = (await extractClinicalData({ rawText })) as ClinicalExtraction;
     } catch (err) {
       console.warn('[process-document] Falling back to heuristic extraction:', err);
@@ -179,6 +178,7 @@ export async function processDocumentAction(
     let chunkCount = 0;
     let vectorized = false;
     if (adminDb) {
+      const { embedText } = await import('@/ai/embeddings');
       const chunks = chunkText(rawText);
       const batch = adminDb.batch();
       const col = adminDb.collection('documentChunks');

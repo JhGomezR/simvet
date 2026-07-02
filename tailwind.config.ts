@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['var(--font-manrope)', 'sans-serif'],
-        headline: ['var(--font-manrope)', 'sans-serif'],
+        body: ['"Segoe UI"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        headline: ['"Aptos"', '"Segoe UI"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
