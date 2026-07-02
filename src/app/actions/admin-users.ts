@@ -19,6 +19,7 @@ type CreateManagedUserResult =
       email: string;
       temporaryPassword: string;
       profileCreatedOnServer: boolean;
+      credentialsValidated: boolean;
       warning?: string;
     }
   | {
@@ -28,7 +29,7 @@ type CreateManagedUserResult =
 
 function generateTemporaryPassword() {
   const chunk = Math.random().toString(36).slice(-6);
-  return `SimVet!${chunk}9`;
+  return `SimVet${chunk}2026`;
 }
 
 function getWebApiKey() {
@@ -42,6 +43,40 @@ function mapIdentityError(message: string) {
     return 'Email/Password no está habilitado en Firebase Authentication.';
   }
   return message || 'No se pudo crear el usuario en Firebase Authentication.';
+}
+
+async function verifyPasswordSignIn(apiKey: string, email: string, password: string) {
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: true,
+      }),
+    }
+  );
+
+  const payload = (await response.json()) as {
+    localId?: string;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || !payload.localId) {
+    return {
+      ok: false as const,
+      error: mapIdentityError(
+        payload.error?.message ??
+          'La cuenta se creó, pero no se pudo validar el inicio de sesión con Email/Password.'
+      ),
+    };
+  }
+
+  return { ok: true as const };
 }
 
 export async function createManagedUserAction(
@@ -61,6 +96,7 @@ export async function createManagedUserAction(
 
   if (adminAuth && adminDb) {
     try {
+      const apiKey = getWebApiKey();
       const userRecord = await adminAuth.createUser({
         email,
         displayName,
@@ -91,12 +127,27 @@ export async function createManagedUserAction(
         throw profileErr;
       }
 
+      if (apiKey) {
+        const verification = await verifyPasswordSignIn(apiKey, email, temporaryPassword);
+        if (!verification.ok) {
+          await adminDb.collection('users').doc(userRecord.uid).delete().catch(() => undefined);
+          await adminAuth.deleteUser(userRecord.uid).catch(() => undefined);
+          return {
+            ok: false,
+            error:
+              `Se intentó crear la cuenta, pero el login con correo/contraseña no pudo validarse. ${verification.error} ` +
+              'Verifica que Email/Password esté habilitado en Firebase Authentication.',
+          };
+        }
+      }
+
       return {
         ok: true,
         uid: userRecord.uid,
         email,
         temporaryPassword,
         profileCreatedOnServer: true,
+        credentialsValidated: Boolean(apiKey),
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo crear el usuario.';
@@ -136,7 +187,19 @@ export async function createManagedUserAction(
     if (!response.ok || !payload.localId) {
       return {
         ok: false,
-        error: mapIdentityError(payload.error?.message ?? 'No se pudo crear el usuario en Authentication.'),
+        error: mapIdentityError(
+          payload.error?.message ?? 'No se pudo crear el usuario en Authentication.'
+        ),
+      };
+    }
+
+    const verification = await verifyPasswordSignIn(apiKey, email, temporaryPassword);
+    if (!verification.ok) {
+      return {
+        ok: false,
+        error:
+          `La cuenta se creó, pero no se pudo validar el inicio de sesión. ${verification.error} ` +
+          'Verifica que Email/Password esté habilitado en Firebase Authentication.',
       };
     }
 
@@ -146,6 +209,7 @@ export async function createManagedUserAction(
       email,
       temporaryPassword,
       profileCreatedOnServer: false,
+      credentialsValidated: true,
       warning:
         'La cuenta se creó usando Firebase Authentication. El perfil y RBAC deben guardarse ahora desde Firestore con tu sesión admin.',
     };
@@ -154,4 +218,3 @@ export async function createManagedUserAction(
     return { ok: false, error: message };
   }
 }
-

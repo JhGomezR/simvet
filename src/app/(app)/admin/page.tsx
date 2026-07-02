@@ -63,6 +63,7 @@ type CreatedCredentials = {
   email: string;
   temporaryPassword: string;
   role: UserRole;
+  credentialsValidated: boolean;
 };
 
 function ensurePrimaryRoleIncluded(role: UserRole, roles: UserRole[]) {
@@ -177,6 +178,7 @@ export default function AdminPage() {
         email: result.email,
         temporaryPassword: result.temporaryPassword,
         role: values.role,
+        credentialsValidated: result.credentialsValidated,
       });
 
       createForm.reset({
@@ -277,6 +279,9 @@ export default function AdminPage() {
                 </p>
                 <p className="mt-2 text-emerald-700">
                   Rol inicial: <strong>{ROLE_LABELS[createdCredentials.role]}</strong>
+                </p>
+                <p className="mt-2 text-emerald-700">
+                  Login validado: <strong>{createdCredentials.credentialsValidated ? 'Sí' : 'Pendiente'}</strong>
                 </p>
                 <p className="mt-2 text-emerald-800">
                   Ya puedes cerrar sesión y entrar con esta cuenta para comprobar su vista.
@@ -651,4 +656,3 @@ export default function AdminPage() {
     </div>
   );
 }
-

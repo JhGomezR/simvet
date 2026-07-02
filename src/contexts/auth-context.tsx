@@ -30,6 +30,22 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile, UserRole } from '@/lib/types';
 
+function mapAuthErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err ?? '');
+
+  if (/auth\/invalid-credential/i.test(message)) {
+    return 'Correo o contraseña incorrectos, o el acceso Email/Password no está habilitado en Firebase Authentication.';
+  }
+  if (/auth\/user-disabled/i.test(message)) {
+    return 'Esta cuenta fue deshabilitada.';
+  }
+  if (/auth\/too-many-requests/i.test(message)) {
+    return 'Demasiados intentos. Espera un momento y vuelve a intentarlo.';
+  }
+
+  return message || 'No se pudo iniciar sesión.';
+}
+
 interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
@@ -93,7 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+    } catch (err) {
+      throw new Error(mapAuthErrorMessage(err));
+    }
   };
 
   const signInWithGoogle = async () => {
