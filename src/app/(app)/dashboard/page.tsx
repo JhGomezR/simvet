@@ -53,17 +53,24 @@ export default function DashboardPage() {
   const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [history, setHistory] = useState<Case[]>([]);
   const [availableCases, setAvailableCases] = useState<ClinicalCase[]>([]);
+  const [professorPublishedCases, setProfessorPublishedCases] = useState<ClinicalCase[]>([]);
+  const [professorHistory, setProfessorHistory] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      if (!user) return;
+      if (!user || !profile) return;
       try {
+        const roles = new Set(profile.roles ?? [profile.role]);
+        const isProfessor = roles.has('professor') || roles.has('admin');
+
         const attempts = await attemptsRepo.listByStudent(user.uid);
         const caseIds = Array.from(new Set(attempts.map((attempt) => attempt.caseId)));
-        const [publishedCases, relatedCases] = await Promise.all([
+        const [publishedCases, relatedCases, professorCases, professorAttempts] = await Promise.all([
           casesRepo.listPublished({ limit: 20 }),
           Promise.all(caseIds.map((caseId) => casesRepo.getById(caseId))),
+          isProfessor ? casesRepo.listByAuthor(user.uid) : Promise.resolve([]),
+          isProfessor ? attemptsRepo.listByStudent(user.uid).catch(() => []) : Promise.resolve([]),
         ]);
 
         const caseMap = new Map<string, ClinicalCase>();
@@ -85,6 +92,25 @@ export default function DashboardPage() {
         setHistory(enriched);
         setAttempts(attempts);
         setAvailableCases(publishedCases);
+
+        if (isProfessor) {
+          const ownCaseMap = new Map(professorCases.map((item) => [item.id, item] as const));
+          const enrichedProfessorHistory: Case[] = professorAttempts.map((attempt) => ({
+            id: attempt.id,
+            name: ownCaseMap.get(attempt.caseId)?.name ?? attempt.caseId,
+            date: new Date(attempt.startedAt).toISOString().slice(0, 10),
+            score: attempt.finalScore ?? 0,
+            status: attempt.status === 'completed' ? 'Completado' : 'En progreso',
+          }));
+
+          setProfessorPublishedCases(
+            professorCases.filter((item) => item.status === 'published')
+          );
+          setProfessorHistory(enrichedProfessorHistory);
+        } else {
+          setProfessorPublishedCases([]);
+          setProfessorHistory([]);
+        }
       } catch (err) {
         console.error('Error cargando dashboard:', err);
       } finally {
@@ -92,12 +118,14 @@ export default function DashboardPage() {
       }
     };
     void load();
-  }, [user]);
+  }, [user, profile]);
 
   const metrics = useMemo(
     () => computeDashboardMetrics(attempts, availableCases),
     [attempts, availableCases]
   );
+  const roles = useMemo(() => new Set(profile?.roles ?? (profile ? [profile.role] : [])), [profile]);
+  const showProfessorSections = roles.has('professor') || roles.has('admin');
 
   if (loading || !profile) {
     return (
@@ -160,10 +188,70 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
+      {showProfessorSections ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Casos Disponibles Publicados</CardTitle>
+              <CardDescription>
+                Estos son los casos que ya quedaron visibles para la simulación.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {professorPublishedCases.length === 0 ? (
+                <p className="py-4 text-sm text-muted-foreground">
+                  Aún no tienes casos publicados. Publica uno desde el modo profesor.
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {professorPublishedCases.map((clinicalCase) => (
+                    <a
+                      key={clinicalCase.id}
+                      href={`/simulacion/${clinicalCase.id}`}
+                      className="block rounded-lg border p-4 transition-colors hover:border-primary"
+                    >
+                      <p className="font-medium">{clinicalCase.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {clinicalCase.difficulty} · {clinicalCase.patient.species}
+                      </p>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Historial de Casos Completados</CardTitle>
+              <CardDescription>
+                Aquí verás las simulaciones realizadas con esta cuenta de profesor.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {professorHistory.length === 0 ? (
+                <p className="py-4 text-sm text-muted-foreground">
+                  Todavía no has completado simulaciones con esta cuenta. Puedes abrir un caso
+                  publicado para probarlo y validar su comportamiento.
+                </p>
+              ) : (
+                <CaseHistoryTable cases={professorHistory} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Casos Completados</CardTitle>
-          <CardDescription>Revisa tu desempeño en simulaciones anteriores.</CardDescription>
+          <CardTitle>
+            {showProfessorSections ? 'Historial Personal de Simulaciones' : 'Historial de Casos Completados'}
+          </CardTitle>
+          <CardDescription>
+            {showProfessorSections
+              ? 'Revisa tu desempeño personal al usar simulaciones con esta cuenta.'
+              : 'Revisa tu desempeño en simulaciones anteriores.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {history.length === 0 ? (
