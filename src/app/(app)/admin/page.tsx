@@ -38,9 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldCheck, Users, BookOpen, Loader2, UserPlus, KeyRound, GraduationCap } from 'lucide-react';
+import { ShieldCheck, Users, BookOpen, Loader2, UserPlus, GraduationCap } from 'lucide-react';
 import type { Clinic, UserProfile, UserRole } from '@/lib/types';
 
 const roleOptions = ['student', 'professor', 'admin', 'veterinarian', 'assistant'] as const;
@@ -48,27 +47,22 @@ const roleOptions = ['student', 'professor', 'admin', 'veterinarian', 'assistant
 const createUserSchema = z.object({
   displayName: z.string().min(3, 'Ingresa al menos 3 caracteres.'),
   email: z.string().email('Correo inválido.'),
-  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres.').optional().or(z.literal('')),
+  password: z
+    .string()
+    .min(8, 'La contraseña debe tener al menos 8 caracteres.')
+    .optional()
+    .or(z.literal('')),
   role: z.enum(roleOptions),
   roles: z.array(z.enum(roleOptions)).min(1, 'Selecciona al menos un rol.'),
   clinicId: z.string().optional().or(z.literal('')),
-});
-
-const accessSchema = z.object({
-  uid: z.string().min(1),
-  displayName: z.string().min(3, 'Ingresa al menos 3 caracteres.'),
-  role: z.enum(roleOptions),
-  roles: z.array(z.enum(roleOptions)).min(1, 'Selecciona al menos un rol.'),
-  clinicId: z.string().optional().or(z.literal('')),
-  mustChangePassword: z.boolean(),
 });
 
 type CreateUserValues = z.infer<typeof createUserSchema>;
-type AccessValues = z.infer<typeof accessSchema>;
 
 type CreatedCredentials = {
   email: string;
   temporaryPassword: string;
+  role: UserRole;
 };
 
 function ensurePrimaryRoleIncluded(role: UserRole, roles: UserRole[]) {
@@ -82,7 +76,6 @@ export default function AdminPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [creatingUser, setCreatingUser] = useState(false);
-  const [savingAccess, setSavingAccess] = useState(false);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
 
@@ -95,18 +88,6 @@ export default function AdminPage() {
       role: 'student',
       roles: ['student'],
       clinicId: '',
-    },
-  });
-
-  const accessForm = useForm<AccessValues>({
-    resolver: zodResolver(accessSchema),
-    defaultValues: {
-      uid: '',
-      displayName: '',
-      role: 'student',
-      roles: ['student'],
-      clinicId: '',
-      mustChangePassword: false,
     },
   });
 
@@ -143,21 +124,13 @@ export default function AdminPage() {
     [selectedUid, users]
   );
 
-  useEffect(() => {
-    if (!selectedUser) return;
-    accessForm.reset({
-      uid: selectedUser.uid,
-      displayName: selectedUser.displayName,
-      role: selectedUser.role as AccessValues['role'],
-      roles: normalizeUserRoles(selectedUser.role, selectedUser.roles) as AccessValues['roles'],
-      clinicId: selectedUser.clinicId ?? '',
-      mustChangePassword: selectedUser.mustChangePassword ?? false,
-    });
-  }, [accessForm, selectedUser]);
-
   const adminCount = users.filter((u) => normalizeUserRoles(u.role, u.roles).includes('admin')).length;
-  const professorCount = users.filter((u) => normalizeUserRoles(u.role, u.roles).includes('professor')).length;
-  const studentCount = users.filter((u) => normalizeUserRoles(u.role, u.roles).includes('student')).length;
+  const professorCount = users.filter((u) =>
+    normalizeUserRoles(u.role, u.roles).includes('professor')
+  ).length;
+  const studentCount = users.filter((u) =>
+    normalizeUserRoles(u.role, u.roles).includes('student')
+  ).length;
 
   async function handleCreateUser(values: CreateUserValues) {
     setCreatingUser(true);
@@ -203,7 +176,9 @@ export default function AdminPage() {
       setCreatedCredentials({
         email: result.email,
         temporaryPassword: result.temporaryPassword,
+        role: values.role,
       });
+
       createForm.reset({
         displayName: '',
         email: '',
@@ -212,58 +187,20 @@ export default function AdminPage() {
         roles: ['student'],
         clinicId: '',
       });
+
       await loadData();
       setSelectedUid(result.uid);
+
       toast({
         title: 'Usuario creado',
         description:
           result.warning ??
-          'La cuenta quedó registrada con acceso inicial y cambio obligatorio de contraseña.',
+          `La cuenta ya fue creada. Puedes cerrar sesión y probar el ingreso con este usuario en el modo ${ROLE_LABELS[
+            values.role
+          ].toLowerCase()}.`,
       });
     } finally {
       setCreatingUser(false);
-    }
-  }
-
-  async function handleSaveAccess(values: AccessValues) {
-    setSavingAccess(true);
-    try {
-      const roles = ensurePrimaryRoleIncluded(values.role, values.roles);
-      await usersRepo.updateAccess(values.uid, {
-        role: values.role,
-        roles,
-        clinicId: values.clinicId || undefined,
-        displayName: values.displayName,
-        mustChangePassword: values.mustChangePassword,
-      });
-
-      setUsers((prev) =>
-        prev.map((profile) =>
-          profile.uid === values.uid
-            ? {
-                ...profile,
-                displayName: values.displayName,
-                role: values.role,
-                roles,
-                clinicId: values.clinicId || undefined,
-                mustChangePassword: values.mustChangePassword,
-              }
-            : profile
-        )
-      );
-
-      toast({
-        title: 'Acceso actualizado',
-        description: 'El perfil quedó alineado con su rol y su flujo dentro del sistema.',
-      });
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Error actualizando acceso',
-        description: err instanceof Error ? err.message : 'Intenta de nuevo.',
-      });
-    } finally {
-      setSavingAccess(false);
     }
   }
 
@@ -274,7 +211,7 @@ export default function AdminPage() {
         <div>
           <h1 className="text-2xl font-bold">Panel de Administración</h1>
           <p className="text-sm text-muted-foreground">
-            Crea cuentas, asigna roles y organiza el flujo entre administración, docencia y simulación.
+            Crea cuentas, define roles y revisa el RBAC visible para cada tipo de usuario.
           </p>
         </div>
       </div>
@@ -318,24 +255,6 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      <Card className="border-amber-200 bg-amber-50/60">
-        <CardHeader>
-          <CardTitle className="text-amber-900">Requisito para crear usuarios desde administración</CardTitle>
-          <CardDescription className="text-amber-800">
-            Esta función depende de Firebase Admin corriendo en el servidor. Si estás en Vercel,
-            configura credenciales del servicio y vuelve a desplegar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-amber-900">
-          <p>Opciones soportadas por el proyecto:</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li><code>FIREBASE_SERVICE_ACCOUNT</code> con el JSON completo de la cuenta de servicio.</li>
-            <li><code>FIREBASE_PROJECT_ID</code>, <code>FIREBASE_CLIENT_EMAIL</code> y <code>FIREBASE_PRIVATE_KEY</code>.</li>
-            <li>En local: <code>GOOGLE_APPLICATION_CREDENTIALS=./service-account.json</code>.</li>
-          </ul>
-        </CardContent>
-      </Card>
-
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <Card>
           <CardHeader>
@@ -344,16 +263,23 @@ export default function AdminPage() {
               Crear usuario
             </CardTitle>
             <CardDescription>
-              Crea la cuenta real en Firebase Auth y deja el perfil listo en Firestore con su rol inicial.
+              Crea la cuenta y asígnale su rol inicial desde un solo flujo.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {createdCredentials ? (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
-                <p className="font-medium text-emerald-800">Credenciales temporales generadas</p>
+                <p className="font-medium text-emerald-800">Usuario creado correctamente</p>
                 <p className="mt-1 text-emerald-700">Correo: {createdCredentials.email}</p>
                 <p className="text-emerald-700">
-                  Contraseña temporal: <span className="font-mono">{createdCredentials.temporaryPassword}</span>
+                  Contraseña temporal:{' '}
+                  <span className="font-mono">{createdCredentials.temporaryPassword}</span>
+                </p>
+                <p className="mt-2 text-emerald-700">
+                  Rol inicial: <strong>{ROLE_LABELS[createdCredentials.role]}</strong>
+                </p>
+                <p className="mt-2 text-emerald-800">
+                  Ya puedes cerrar sesión y entrar con esta cuenta para comprobar su vista.
                 </p>
               </div>
             ) : null}
@@ -394,7 +320,11 @@ export default function AdminPage() {
                       <FormItem>
                         <FormLabel>Contraseña temporal</FormLabel>
                         <FormControl>
-                          <Input type="text" placeholder="Opcional: se genera automáticamente" {...field} />
+                          <Input
+                            type="text"
+                            placeholder="Opcional: se genera automáticamente"
+                            {...field}
+                          />
                         </FormControl>
                         <FormDescription>
                           Si la dejas vacía, el sistema genera una temporal.
@@ -409,7 +339,12 @@ export default function AdminPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Clínica</FormLabel>
-                        <Select value={field.value || '__none__'} onValueChange={(value) => field.onChange(value === '__none__' ? '' : value)}>
+                        <Select
+                          value={field.value || '__none__'}
+                          onValueChange={(value) =>
+                            field.onChange(value === '__none__' ? '' : value)
+                          }
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Sin asignar" />
@@ -494,7 +429,9 @@ export default function AdminPage() {
                               />
                               <span>
                                 <span className="block font-medium">{ROLE_LABELS[role]}</span>
-                                <span className="text-muted-foreground">{ROLE_PLAYBOOKS[role].summary}</span>
+                                <span className="text-muted-foreground">
+                                  {ROLE_PLAYBOOKS[role].summary}
+                                </span>
                               </span>
                             </label>
                           );
@@ -506,7 +443,11 @@ export default function AdminPage() {
                 />
 
                 <Button type="submit" disabled={creatingUser}>
-                  {creatingUser ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  {creatingUser ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="mr-2 h-4 w-4" />
+                  )}
                   Crear usuario
                 </Button>
               </form>
@@ -527,9 +468,19 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="font-medium">{ROLE_PLAYBOOKS[role].title}</p>
-                    <p className="text-sm text-muted-foreground">{ROLE_PLAYBOOKS[role].summary}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {ROLE_PLAYBOOKS[role].summary}
+                    </p>
                   </div>
-                  <Badge variant={role === 'admin' ? 'destructive' : role === 'professor' ? 'default' : 'secondary'}>
+                  <Badge
+                    variant={
+                      role === 'admin'
+                        ? 'destructive'
+                        : role === 'professor'
+                          ? 'default'
+                          : 'secondary'
+                    }
+                  >
                     {ROLE_LABELS[role]}
                   </Badge>
                 </div>
@@ -552,14 +503,6 @@ export default function AdminPage() {
                       ))}
                     </ul>
                   </div>
-                  <div>
-                    <p className="font-medium">Conexión con otros roles</p>
-                    <ul className="list-disc pl-5 text-muted-foreground">
-                      {ROLE_PLAYBOOKS[role].handoff.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
                 </div>
               </div>
             ))}
@@ -572,7 +515,7 @@ export default function AdminPage() {
           <CardHeader>
             <CardTitle>Gestión de usuarios</CardTitle>
             <CardDescription>
-              Selecciona un usuario para editar su rol principal, roles activos, clínica y cambio obligatorio de contraseña.
+              Selecciona un usuario para revisar rápidamente su RBAC y los módulos que verá dentro de la plataforma.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -616,14 +559,16 @@ export default function AdminPage() {
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{profile.clinicId ?? 'Sin asignar'}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {profile.clinicId ?? 'Sin asignar'}
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant={selectedUid === profile.uid ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setSelectedUid(profile.uid)}
                           >
-                            Editar acceso
+                            Ver RBAC
                           </Button>
                           {roles.includes('admin') && adminCount === 1 && user?.uid === profile.uid ? (
                             <p className="mt-1 text-xs text-amber-700">
@@ -642,152 +587,63 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Acceso del usuario</CardTitle>
+            <CardTitle>RBAC del usuario</CardTitle>
             <CardDescription>
-              Ajusta cómo se mueve la cuenta dentro del sistema y qué modo tendrá por defecto.
+              Resumen de lo que verá y hará el usuario seleccionado según sus roles.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!selectedUser ? (
               <p className="text-sm text-muted-foreground">
-                Selecciona un usuario de la tabla para editar su acceso.
+                Selecciona un usuario de la tabla para revisar su RBAC.
               </p>
             ) : (
-              <Form {...accessForm}>
-                <form onSubmit={accessForm.handleSubmit(handleSaveAccess)} className="space-y-5">
-                  <FormField
-                    control={accessForm.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nombre</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <div className="space-y-5">
+                <div>
+                  <p className="text-sm font-medium">Usuario</p>
+                  <p className="text-sm text-muted-foreground">{selectedUser.displayName}</p>
+                  <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
+                </div>
 
-                  <FormField
-                    control={accessForm.control}
-                    name="clinicId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Clínica</FormLabel>
-                        <Select value={field.value || '__none__'} onValueChange={(value) => field.onChange(value === '__none__' ? '' : value)}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sin asignar" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">Sin asignar</SelectItem>
-                            {clinics.map((clinic) => (
-                              <SelectItem key={clinic.id} value={clinic.id}>
-                                {clinic.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div>
+                  <p className="text-sm font-medium">Roles activos</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {normalizeUserRoles(selectedUser.role, selectedUser.roles).map((role) => (
+                      <Badge
+                        key={role}
+                        variant={
+                          role === 'admin'
+                            ? 'destructive'
+                            : role === 'professor'
+                              ? 'default'
+                              : 'secondary'
+                        }
+                      >
+                        {ROLE_LABELS[role]}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
 
-                  <FormField
-                    control={accessForm.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Rol principal</FormLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={(value) => {
-                            const nextRole = value as UserRole;
-                            field.onChange(nextRole);
-                            accessForm.setValue(
-                              'roles',
-                              ensurePrimaryRoleIncluded(nextRole, accessForm.getValues('roles'))
-                            );
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {roleOptions.map((role) => (
-                              <SelectItem key={role} value={role}>
-                                {ROLE_LABELS[role]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={accessForm.control}
-                    name="roles"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Roles activos</FormLabel>
-                        <div className="space-y-2">
-                          {roleOptions.map((role) => {
-                            const checked = field.value.includes(role);
-                            return (
-                              <label key={role} className="flex items-center gap-3 rounded-md border p-3 text-sm">
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(value) => {
-                                    const current = new Set(field.value);
-                                    if (value) current.add(role);
-                                    else current.delete(role);
-                                    current.add(accessForm.getValues('role'));
-                                    field.onChange(Array.from(current));
-                                  }}
-                                />
-                                <span>{ROLE_LABELS[role]}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={accessForm.control}
-                    name="mustChangePassword"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="pr-4">
-                          <FormLabel className="flex items-center gap-2 text-base">
-                            <KeyRound className="h-4 w-4" />
-                            Cambio obligatorio de contraseña
-                          </FormLabel>
-                          <FormDescription>
-                            Útil para cuentas nuevas o cuando el admin reinicia el acceso.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" disabled={savingAccess}>
-                    {savingAccess ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Guardar acceso
-                  </Button>
-                </form>
-              </Form>
+                {normalizeUserRoles(selectedUser.role, selectedUser.roles).map((role) => (
+                  <div key={role} className="rounded-lg border p-4">
+                    <p className="font-medium">{ROLE_PLAYBOOKS[role].title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {ROLE_PLAYBOOKS[role].summary}
+                    </p>
+                    <div className="mt-3">
+                      <p className="text-sm font-medium">Módulos visibles</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {ROLE_PLAYBOOKS[role].modules.map((module) => (
+                          <Badge key={`${role}-${module}`} variant="outline">
+                            {module}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -795,3 +651,4 @@ export default function AdminPage() {
     </div>
   );
 }
+
