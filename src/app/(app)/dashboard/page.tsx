@@ -5,7 +5,6 @@ import { Activity, GraduationCap, Loader2, Percent } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/stat-card';
 import { CaseHistoryTable } from '@/components/dashboard/case-history-table';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -15,7 +14,6 @@ import {
 } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
 import { attemptsRepo, casesRepo } from '@/lib/repositories';
-import { normalizeUserRoles, ROLE_PLAYBOOKS } from '@/lib/rbac';
 import type { Attempt, Case, ClinicalCase } from '@/lib/types';
 
 function computeDashboardMetrics(attempts: Attempt[], availableCases: ClinicalCase[]) {
@@ -23,7 +21,8 @@ function computeDashboardMetrics(attempts: Attempt[], availableCases: ClinicalCa
   const averageScore =
     completed.length > 0
       ? Math.round(
-          completed.reduce((sum, attempt) => sum + (attempt.finalScore ?? 0), 0) / completed.length
+          completed.reduce((sum, attempt) => sum + (attempt.finalScore ?? 0), 0) /
+            completed.length
         )
       : 0;
 
@@ -41,7 +40,9 @@ function computeDashboardMetrics(attempts: Attempt[], availableCases: ClinicalCa
 
   const academicProgress =
     availableCases.length > 0
-      ? Math.round((new Set(completed.map((attempt) => attempt.caseId)).size / availableCases.length) * 100)
+      ? Math.round(
+          (new Set(completed.map((attempt) => attempt.caseId)).size / availableCases.length) * 100
+        )
       : 0;
 
   const level =
@@ -68,11 +69,11 @@ export default function DashboardPage() {
         const roles = new Set(profile.roles ?? [profile.role]);
         const isProfessor = roles.has('professor') || roles.has('admin');
 
-        const attempts = await attemptsRepo.listByStudent(user.uid).catch((err) => {
+        const loadedAttempts = await attemptsRepo.listByStudent(user.uid).catch((err) => {
           console.error('No se pudo cargar el historial de intentos del dashboard:', err);
           return [];
         });
-        const caseIds = Array.from(new Set(attempts.map((attempt) => attempt.caseId)));
+        const caseIds = Array.from(new Set(loadedAttempts.map((attempt) => attempt.caseId)));
         const [publishedCases, relatedCases, professorCases] = await Promise.all([
           casesRepo.listPublished({ limit: 20 }).catch((err) => {
             console.error('No se pudieron cargar los casos publicados del dashboard:', err);
@@ -99,7 +100,7 @@ export default function DashboardPage() {
           if (item) caseMap.set(item.id, item);
         }
 
-        const enriched: Case[] = attempts.map((attempt) => {
+        const enriched: Case[] = loadedAttempts.map((attempt) => {
           const currentCase = caseMap.get(attempt.caseId);
           return {
             id: attempt.id,
@@ -111,12 +112,12 @@ export default function DashboardPage() {
         });
 
         setHistory(enriched);
-        setAttempts(attempts);
+        setAttempts(loadedAttempts);
         setAvailableCases(publishedCases);
 
         if (isProfessor) {
           const ownCaseMap = new Map(professorCases.map((item) => [item.id, item] as const));
-          const enrichedProfessorHistory: Case[] = attempts.map((attempt) => ({
+          const enrichedProfessorHistory: Case[] = loadedAttempts.map((attempt) => ({
             id: attempt.id,
             name: ownCaseMap.get(attempt.caseId)?.name ?? attempt.caseId,
             date: new Date(attempt.startedAt).toISOString().slice(0, 10),
@@ -124,9 +125,7 @@ export default function DashboardPage() {
             status: attempt.status === 'completed' ? 'Completado' : 'En progreso',
           }));
 
-          setProfessorPublishedCases(
-            professorCases.filter((item) => item.status === 'published')
-          );
+          setProfessorPublishedCases(professorCases.filter((item) => item.status === 'published'));
           setProfessorHistory(enrichedProfessorHistory);
         } else {
           setProfessorPublishedCases([]);
@@ -135,9 +134,7 @@ export default function DashboardPage() {
       } catch (err) {
         console.error('Error cargando dashboard:', err);
         setLoadError(
-          err instanceof Error
-            ? err.message
-            : 'No se pudo cargar por completo el dashboard.'
+          err instanceof Error ? err.message : 'No se pudo cargar por completo el dashboard.'
         );
       } finally {
         setLoading(false);
@@ -146,7 +143,11 @@ export default function DashboardPage() {
 
     const timeoutId = window.setTimeout(() => {
       setLoading(false);
-      setLoadError((current) => current ?? 'La carga del dashboard tardó demasiado. Se mostrará el contenido disponible.');
+      setLoadError(
+        (current) =>
+          current ??
+          'La carga del dashboard tardó demasiado. Se mostrará el contenido disponible.'
+      );
     }, 8000);
 
     void load();
@@ -157,15 +158,11 @@ export default function DashboardPage() {
     () => computeDashboardMetrics(attempts, availableCases),
     [attempts, availableCases]
   );
-  const roles = useMemo(() => new Set(profile?.roles ?? (profile ? [profile.role] : [])), [profile]);
-  const showProfessorSections = roles.has('professor') || roles.has('admin');
-  const rolePlaybooks = useMemo(
-    () =>
-      normalizeUserRoles(profile?.role, profile?.roles)
-        .map((role) => ROLE_PLAYBOOKS[role])
-        .filter(Boolean),
+  const roles = useMemo(
+    () => new Set(profile?.roles ?? (profile ? [profile.role] : [])),
     [profile]
   );
+  const showProfessorSections = roles.has('professor') || roles.has('admin');
 
   if (loading || !profile) {
     return (
@@ -177,50 +174,11 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Tu espacio según rol</CardTitle>
-          <CardDescription>
-            Este panel resume qué debes hacer dentro de SimVet con la cuenta que tienes activa.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadError ? (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              {loadError}
-            </div>
-          ) : null}
-          <div className="grid gap-4 lg:grid-cols-3">
-            {rolePlaybooks.map((playbook) => (
-              <div key={playbook.role} className="rounded-lg border p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium">{playbook.title}</p>
-                  <Badge
-                    variant={
-                      playbook.role === 'admin'
-                        ? 'destructive'
-                        : playbook.role === 'professor'
-                          ? 'default'
-                          : 'secondary'
-                    }
-                  >
-                    {playbook.title}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">{playbook.summary}</p>
-                <div className="mt-4">
-                  <p className="text-sm font-medium">Qué debes hacer</p>
-                  <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {playbook.responsibilities.slice(0, 3).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {loadError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {loadError}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Nivel Actual" value={metrics.level} icon={GraduationCap} />
@@ -330,7 +288,9 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {showProfessorSections ? 'Historial Personal de Simulaciones' : 'Historial de Casos Completados'}
+            {showProfessorSections
+              ? 'Historial Personal de Simulaciones'
+              : 'Historial de Casos Completados'}
           </CardTitle>
           <CardDescription>
             {showProfessorSections
