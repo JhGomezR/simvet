@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Segoe UI"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        headline: ['"Aptos"', '"Segoe UI"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        body: ['Inter', 'sans-serif'],
+        headline: ['Inter', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
@@ -72,24 +72,6 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       keyframes: {
-        'fade-up': {
-          from: {
-            opacity: '0',
-            transform: 'translateY(10px)',
-          },
-          to: {
-            opacity: '1',
-            transform: 'translateY(0)',
-          },
-        },
-        'pulse-soft': {
-          '0%, 100%': {
-            opacity: '1',
-          },
-          '50%': {
-            opacity: '.72',
-          },
-        },
         'accordion-down': {
           from: {
             height: '0',
@@ -108,8 +90,6 @@ export default {
         },
       },
       animation: {
-        'fade-up': 'fade-up 240ms ease-in-out',
-        'pulse-soft': 'pulse-soft 1.6s ease-in-out infinite',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },

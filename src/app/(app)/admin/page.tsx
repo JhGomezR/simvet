@@ -17,14 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -46,15 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import {
-  BookOpen,
-  GraduationCap,
-  Loader2,
-  RefreshCcw,
-  ShieldCheck,
-  UserPlus,
-  Users,
-} from 'lucide-react';
+import { ShieldCheck, Users, BookOpen, Loader2, UserPlus, GraduationCap, RefreshCcw } from 'lucide-react';
 import type { Clinic, UserProfile, UserRole } from '@/lib/types';
 
 const roleOptions = ['student', 'professor', 'admin', 'veterinarian', 'assistant'] as const;
@@ -231,106 +216,93 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 py-2">
-      <Card className="overflow-hidden">
-        <CardHeader className="sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="clinical-kicker">Access Orchestration</p>
-            <CardTitle className="text-2xl">Panel de Administración</CardTitle>
-            <CardDescription>
-              Crea cuentas, asigna roles y revisa el RBAC visible para cada perfil dentro de
-              SimVet.
-            </CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => void loadData()}>
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            Recargar
-          </Button>
-        </CardHeader>
-      </Card>
+    <div className="flex flex-col gap-6 py-6">
+      <div className="flex items-center gap-3">
+        <ShieldCheck className="h-8 w-8 text-primary" />
+        <div>
+          <h1 className="text-2xl font-bold">Panel de Administración</h1>
+          <p className="text-sm text-muted-foreground">
+            Crea cuentas, define roles y revisa el RBAC visible para cada tipo de usuario.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void loadData()}>
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Recargar
+        </Button>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Users</p>
-              <CardTitle className="text-base">Usuarios totales</CardTitle>
-            </div>
-            <Users className="h-5 w-5 text-primary" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Usuarios totales</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="text-4xl font-semibold text-slate-950">{users.length}</CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{users.length}</div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Leadership</p>
-              <CardTitle className="text-base">Administradores</CardTitle>
-            </div>
-            <ShieldCheck className="h-5 w-5 text-primary" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Administradores</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="text-4xl font-semibold text-slate-950">{adminCount}</CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{adminCount}</div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Faculty</p>
-              <CardTitle className="text-base">Docentes</CardTitle>
-            </div>
-            <BookOpen className="h-5 w-5 text-primary" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Docentes</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="text-4xl font-semibold text-slate-950">{professorCount}</CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{professorCount}</div>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <p className="clinical-kicker">Learners</p>
-              <CardTitle className="text-base">Estudiantes</CardTitle>
-            </div>
-            <GraduationCap className="h-5 w-5 text-primary" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Estudiantes</CardTitle>
+            <GraduationCap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent className="text-4xl font-semibold text-slate-950">{studentCount}</CardContent>
+          <CardContent>
+            <div className="text-2xl font-bold">{studentCount}</div>
+          </CardContent>
         </Card>
       </div>
 
       <Card className="border-dashed">
         <CardContent className="pt-6 text-sm text-muted-foreground">
-          Los conteos de esta pantalla se basan en perfiles guardados en Firestore. Si un usuario
-          ya inició sesión pero aún no aparece aquí, usa <strong>Recargar</strong> para
-          sincronizar la lista.
+          Los conteos de esta pantalla se basan en perfiles guardados en Firestore. Si un usuario ya inició sesión pero aún no aparece aquí, usa `Recargar` para volver a sincronizar la lista.
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <Card>
           <CardHeader>
-            <p className="clinical-kicker">Provisioning</p>
             <CardTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" />
+              <UserPlus className="h-5 w-5" />
               Crear usuario
             </CardTitle>
             <CardDescription>
-              Crea la cuenta y define su base de acceso desde un solo flujo.
+              Crea la cuenta y asígnale su rol inicial desde un solo flujo.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {createdCredentials ? (
-              <div className="rounded-[1.25rem] border border-emerald-200 bg-emerald-50/90 p-4 text-sm text-emerald-900">
-                <p className="font-semibold">Usuario creado correctamente</p>
-                <p className="mt-2">Correo: {createdCredentials.email}</p>
-                <p>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm">
+                <p className="font-medium text-emerald-800">Usuario creado correctamente</p>
+                <p className="mt-1 text-emerald-700">Correo: {createdCredentials.email}</p>
+                <p className="text-emerald-700">
                   Contraseña temporal:{' '}
-                  <span className="rounded bg-white/70 px-2 py-1 font-mono">
-                    {createdCredentials.temporaryPassword}
-                  </span>
+                  <span className="font-mono">{createdCredentials.temporaryPassword}</span>
                 </p>
-                <p className="mt-2">
+                <p className="mt-2 text-emerald-700">
                   Rol inicial: <strong>{ROLE_LABELS[createdCredentials.role]}</strong>
                 </p>
-                <p>
-                  Login validado:{' '}
-                  <strong>{createdCredentials.credentialsValidated ? 'Sí' : 'Pendiente'}</strong>
+                <p className="mt-2 text-emerald-700">
+                  Login validado: <strong>{createdCredentials.credentialsValidated ? 'Sí' : 'Pendiente'}</strong>
                 </p>
-                <p className="mt-2">
+                <p className="mt-2 text-emerald-800">
                   Ya puedes cerrar sesión y entrar con esta cuenta para comprobar su vista.
                 </p>
               </div>
@@ -379,7 +351,7 @@ export default function AdminPage() {
                           />
                         </FormControl>
                         <FormDescription>
-                          Si la dejas vacía, el sistema genera una contraseña temporal.
+                          Si la dejas vacía, el sistema genera una temporal.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -435,7 +407,7 @@ export default function AdminPage() {
                         }}
                       >
                         <FormControl>
-                          <SelectTrigger className="max-w-[280px]">
+                          <SelectTrigger className="max-w-[260px]">
                             <SelectValue />
                           </SelectTrigger>
                         </FormControl>
@@ -448,7 +420,7 @@ export default function AdminPage() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        El rol principal define el modo predominante de la cuenta.
+                        El rol principal define el modo predominante de esa cuenta.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -467,28 +439,24 @@ export default function AdminPage() {
                           return (
                             <label
                               key={role}
-                              className="rounded-[1.1rem] border border-slate-200/80 bg-white/70 p-4 text-sm transition-all duration-200 hover:border-primary/25 hover:shadow-[0_20px_40px_-36px_rgba(15,23,42,0.6)]"
+                              className="flex items-start gap-3 rounded-lg border p-3 text-sm"
                             >
-                              <div className="flex items-start gap-3">
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(value) => {
-                                    const current = new Set(field.value);
-                                    if (value) current.add(role);
-                                    else current.delete(role);
-                                    current.add(createForm.getValues('role'));
-                                    field.onChange(Array.from(current));
-                                  }}
-                                />
-                                <span>
-                                  <span className="block font-medium text-slate-900">
-                                    {ROLE_LABELS[role]}
-                                  </span>
-                                  <span className="mt-1 block text-muted-foreground">
-                                    {ROLE_PLAYBOOKS[role].summary}
-                                  </span>
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => {
+                                  const current = new Set(field.value);
+                                  if (value) current.add(role);
+                                  else current.delete(role);
+                                  current.add(createForm.getValues('role'));
+                                  field.onChange(Array.from(current));
+                                }}
+                              />
+                              <span>
+                                <span className="block font-medium">{ROLE_LABELS[role]}</span>
+                                <span className="text-muted-foreground">
+                                  {ROLE_PLAYBOOKS[role].summary}
                                 </span>
-                              </div>
+                              </span>
                             </label>
                           );
                         })}
@@ -513,22 +481,18 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <p className="clinical-kicker">RBAC Map</p>
-            <CardTitle>Cómo se conectan los roles</CardTitle>
+            <CardTitle>Flujo entre roles</CardTitle>
             <CardDescription>
-              Vista resumida del flujo entre administración, docencia y resolución estudiantil.
+              Así se complementan las cuentas dentro de SimVet para que la simulación tenga sentido académico.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {(['admin', 'professor', 'student'] as const).map((role) => (
-              <div
-                key={role}
-                className="rounded-[1.2rem] border border-slate-200/80 bg-white/70 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
+              <div key={role} className="rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-slate-900">{ROLE_PLAYBOOKS[role].title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="font-medium">{ROLE_PLAYBOOKS[role].title}</p>
+                    <p className="text-sm text-muted-foreground">
                       {ROLE_PLAYBOOKS[role].summary}
                     </p>
                   </div>
@@ -544,14 +508,24 @@ export default function AdminPage() {
                     {ROLE_LABELS[role]}
                   </Badge>
                 </div>
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-slate-900">Módulos visibles</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {ROLE_PLAYBOOKS[role].modules.map((module) => (
-                      <Badge key={module} variant="outline">
-                        {module}
-                      </Badge>
-                    ))}
+                <div className="mt-3 space-y-2 text-sm">
+                  <div>
+                    <p className="font-medium">Módulos / RBAC visibles</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {ROLE_PLAYBOOKS[role].modules.map((module) => (
+                        <Badge key={module} variant="outline">
+                          {module}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-medium">Responsabilidades</p>
+                    <ul className="list-disc pl-5 text-muted-foreground">
+                      {ROLE_PLAYBOOKS[role].responsibilities.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -560,88 +534,83 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <Card>
           <CardHeader>
-            <p className="clinical-kicker">Users Registry</p>
             <CardTitle>Gestión de usuarios</CardTitle>
             <CardDescription>
-              Selecciona un usuario para revisar de forma rápida su RBAC y los módulos que verá
-              dentro de la plataforma.
+              Selecciona un usuario para revisar rápidamente su RBAC y los módulos que verá dentro de la plataforma.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[1.2rem] border border-slate-200/80">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Clínica</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((profile) => {
-                      const roles = normalizeUserRoles(profile.role, profile.roles);
-                      return (
-                        <TableRow key={profile.uid} className="hover:bg-slate-50/80">
-                          <TableCell className="font-medium">{profile.displayName}</TableCell>
-                          <TableCell className="text-muted-foreground">{profile.email}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {roles.map((role) => (
-                                <Badge
-                                  key={`${profile.uid}-${role}`}
-                                  variant={
-                                    role === 'admin'
-                                      ? 'destructive'
-                                      : role === 'professor'
-                                        ? 'default'
-                                        : 'secondary'
-                                  }
-                                >
-                                  {ROLE_LABELS[role]}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {profile.clinicId ?? 'Sin asignar'}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant={selectedUid === profile.uid ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setSelectedUid(profile.uid)}
-                            >
-                              Ver RBAC
-                            </Button>
-                            {roles.includes('admin') && adminCount === 1 && user?.uid === profile.uid ? (
-                              <p className="mt-1 text-xs text-amber-700">
-                                Eres el único administrador actual.
-                              </p>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Roles</TableHead>
+                    <TableHead>Clínica</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((profile) => {
+                    const roles = normalizeUserRoles(profile.role, profile.roles);
+                    return (
+                      <TableRow key={profile.uid}>
+                        <TableCell className="font-medium">{profile.displayName}</TableCell>
+                        <TableCell className="text-muted-foreground">{profile.email}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {roles.map((role) => (
+                              <Badge
+                                key={`${profile.uid}-${role}`}
+                                variant={
+                                  role === 'admin'
+                                    ? 'destructive'
+                                    : role === 'professor'
+                                      ? 'default'
+                                      : 'secondary'
+                                }
+                              >
+                                {ROLE_LABELS[role]}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {profile.clinicId ?? 'Sin asignar'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant={selectedUid === profile.uid ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setSelectedUid(profile.uid)}
+                          >
+                            Ver RBAC
+                          </Button>
+                          {roles.includes('admin') && adminCount === 1 && user?.uid === profile.uid ? (
+                            <p className="mt-1 text-xs text-amber-700">
+                              Eres el único administrador actual.
+                            </p>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <p className="clinical-kicker">Access Preview</p>
             <CardTitle>RBAC del usuario</CardTitle>
             <CardDescription>
               Resumen de lo que verá y hará el usuario seleccionado según sus roles.
@@ -649,20 +618,20 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             {!selectedUser ? (
-              <div className="rounded-[1.2rem] border border-dashed border-slate-200 bg-slate-50/70 px-4 py-7 text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Selecciona un usuario de la tabla para revisar su RBAC.
-              </div>
+              </p>
             ) : (
               <div className="space-y-5">
-                <div className="rounded-[1.2rem] border border-slate-200/80 bg-white/70 p-4">
-                  <p className="text-sm font-medium text-slate-900">Usuario</p>
-                  <p className="mt-2 text-sm text-slate-900">{selectedUser.displayName}</p>
+                <div>
+                  <p className="text-sm font-medium">Usuario</p>
+                  <p className="text-sm text-muted-foreground">{selectedUser.displayName}</p>
                   <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Roles activos</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <p className="text-sm font-medium">Roles activos</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {normalizeUserRoles(selectedUser.role, selectedUser.roles).map((role) => (
                       <Badge
                         key={role}
@@ -681,16 +650,13 @@ export default function AdminPage() {
                 </div>
 
                 {normalizeUserRoles(selectedUser.role, selectedUser.roles).map((role) => (
-                  <div
-                    key={role}
-                    className="rounded-[1.2rem] border border-slate-200/80 bg-white/70 p-4"
-                  >
-                    <p className="font-semibold text-slate-900">{ROLE_PLAYBOOKS[role].title}</p>
+                  <div key={role} className="rounded-lg border p-4">
+                    <p className="font-medium">{ROLE_PLAYBOOKS[role].title}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {ROLE_PLAYBOOKS[role].summary}
                     </p>
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-slate-900">Módulos visibles</p>
+                    <div className="mt-3">
+                      <p className="text-sm font-medium">Módulos visibles</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {ROLE_PLAYBOOKS[role].modules.map((module) => (
                           <Badge key={`${role}-${module}`} variant="outline">
