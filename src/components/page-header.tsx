@@ -36,9 +36,10 @@ export function PageHeader() {
 
   return (
     <div className="min-w-0 animate-fade-up">
-      <p className="clinical-kicker mb-1">SimVet</p>
+      <p className="clinical-kicker mb-1">SimVet Workspace</p>
       <h1 className="truncate text-xl font-semibold md:text-2xl">{current.title}</h1>
       <p className="hidden text-sm text-muted-foreground md:block">{current.subtitle}</p>
     </div>
   );
 }
+
