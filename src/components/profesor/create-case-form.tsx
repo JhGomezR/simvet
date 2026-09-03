@@ -35,7 +35,7 @@ const caseFormSchema = z.object({
   description: z.string().min(10, 'La descripción debe tener al menos 10 caracteres.'),
   difficulty: z.enum(['Básico', 'Intermedio', 'Avanzado']),
   patientName: z.string().min(2, 'El nombre del paciente es requerido.'),
-  species: z.string().min(3, 'La especie es requerida.'),
+  species: z.enum(['Canino', 'Felino'], { required_error: 'Selecciona perro o gato.' }),
   age: z.string().min(1, 'La edad es requerida.'),
   weight: z.string().min(1, 'El peso es requerido.'),
   chiefComplaint: z.string().min(10, 'El motivo de consulta es requerido.'),
@@ -64,7 +64,7 @@ function toDefaultValues(initialCase?: ClinicalCase | null): CaseFormValues {
     description: initialCase?.description ?? '',
     difficulty: initialCase?.difficulty ?? 'Intermedio',
     patientName: initialCase?.patient.name ?? '',
-    species: initialCase?.patient.species ?? '',
+    species: initialCase?.patient.species === 'Felino' ? 'Felino' : 'Canino',
     age: initialCase?.patient.age ?? '',
     weight: initialCase?.patient.weightKg ? String(initialCase.patient.weightKg) : '',
     chiefComplaint: initialCase?.patient.chiefComplaint ?? '',
@@ -250,9 +250,17 @@ export function CreateCaseForm({ initialCase }: CreateCaseFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Especie</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ej: Canino" {...field} />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona el animal" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Canino">Perro</SelectItem>
+                          <SelectItem value="Felino">Gato</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

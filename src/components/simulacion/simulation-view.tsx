@@ -94,6 +94,10 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
 
   const questions = clinicalCase.studentQuestions ?? [];
   const isPatientStable = patientStatus === 'Stable' || patientStatus === 'Improving';
+  const diagnosisText = questions
+    .filter((question) => question.kind === 'diagnostico')
+    .map((question) => studentAnswers[question.id] ?? '')
+    .find((answer) => answer.trim().length > 0);
 
   useEffect(() => {
     const createAttempt = async () => {
@@ -348,7 +352,11 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         </Button>
       </div>
 
-      <Clinical3DSimulator clinicalCase={clinicalCase} activeFinding={activeFinding} />
+      <Clinical3DSimulator
+        clinicalCase={clinicalCase}
+        activeFinding={activeFinding}
+        diagnosisText={diagnosisText}
+      />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-3">

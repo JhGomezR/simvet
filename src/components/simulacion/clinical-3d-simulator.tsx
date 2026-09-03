@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Crosshair,
+  Eye,
+  Layers3,
   Maximize2,
   MousePointer2,
   Rotate3D,
@@ -29,13 +31,18 @@ import {
   WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { ClinicalCase, PhysicalExamFinding } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 type Clinical3DSimulatorProps = {
   clinicalCase: ClinicalCase;
   activeFinding: PhysicalExamFinding | null;
+  diagnosisText?: string;
 };
+
+type ViewMode = 'clinical' | 'anatomical';
+type AnimalModel = 'dog' | 'cat';
 
 type Region = {
   label: string;
@@ -44,7 +51,7 @@ type Region = {
 };
 
 const regions: Record<PhysicalExamFinding['system'], Region> = {
-  cardiovascular: { label: 'Tórax · corazón', position: [0.28, 0.65, 0], size: [0.68, 0.54, 0.52] },
+  cardiovascular: { label: 'Tórax · zona cardiovascular', position: [0.28, 0.65, 0], size: [0.68, 0.54, 0.52] },
   respiratorio: { label: 'Tórax · vías respiratorias', position: [0.08, 0.76, 0], size: [1.32, 0.74, 0.62] },
   digestivo: { label: 'Abdomen', position: [-0.28, 0.04, 0], size: [1.48, 0.82, 0.68] },
   neurologico: { label: 'Cabeza y sistema nervioso', position: [1.18, 1.05, 0], size: [0.7, 0.58, 0.6] },
@@ -55,18 +62,39 @@ const regions: Record<PhysicalExamFinding['system'], Region> = {
   general: { label: 'Evaluación general', position: [0, 0.25, 0], size: [2.3, 1.9, 1.15] },
 };
 
+const animalModels: Record<AnimalModel, { label: string; modelUrl: string }> = {
+  dog: { label: 'Perro', modelUrl: '/models/perro-3d.glb' },
+  cat: { label: 'Gato', modelUrl: '/models/gato-3d.glb' },
+};
+
+function getAnimalModel(species: string): AnimalModel {
+  const value = species.trim().toLocaleLowerCase();
+  return value.includes('fel') || value.includes('gat') || value.includes('cat') ? 'cat' : 'dog';
+}
+
 function Spinner() {
   return <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-300 border-t-transparent" />;
 }
 
-export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DSimulatorProps) {
+export function Clinical3DSimulator({ clinicalCase, activeFinding, diagnosisText }: Clinical3DSimulatorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markerRef = useRef<Mesh | null>(null);
   const markerMaterialRef = useRef<MeshBasicMaterial | null>(null);
+  const anatomyGuideRef = useRef<Group | null>(null);
+  const viewModeRef = useRef<ViewMode>('clinical');
+  const surfaceMaterialsRef = useRef<Array<{
+    material: MeshStandardMaterial;
+    color: Color;
+    opacity: number;
+    transparent: boolean;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('clinical');
 
+  const animal = getAnimalModel(clinicalCase.patient.species);
+  const model = animalModels[animal];
   const activeRegion = activeFinding ? regions[activeFinding.system] : null;
   const abnormalFindings = useMemo(
     () => clinicalCase.physicalExam?.filter((finding) => finding.isAbnormal) ?? [],
@@ -75,7 +103,7 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
 
   useEffect(() => {
     const marker = markerRef.current;
-    if (!marker || !activeRegion) {
+    if (!marker || !activeRegion || viewMode !== 'clinical') {
       if (marker) marker.visible = false;
       return;
     }
@@ -84,12 +112,28 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
     marker.scale.set(...activeRegion.size);
     marker.visible = true;
     markerMaterialRef.current?.color.set(activeFinding?.isAbnormal ? '#fb7185' : '#38bdf8');
-  }, [activeFinding, activeRegion]);
+  }, [activeFinding, activeRegion, viewMode]);
+
+  useEffect(() => {
+    const anatomyView = viewMode === 'anatomical';
+    viewModeRef.current = viewMode;
+    anatomyGuideRef.current && (anatomyGuideRef.current.visible = anatomyView);
+    for (const entry of surfaceMaterialsRef.current) {
+      entry.material.transparent = anatomyView || entry.transparent;
+      entry.material.opacity = anatomyView ? Math.min(entry.opacity, 0.3) : entry.opacity;
+      entry.material.color.copy(entry.color);
+      if (anatomyView) entry.material.color.lerp(new Color('#7dd3fc'), 0.26);
+      entry.material.needsUpdate = true;
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    setLoading(true);
+    setLoadError(false);
+    surfaceMaterialsRef.current = [];
     let animationFrame = 0;
     let disposed = false;
     let dragging = false;
@@ -97,6 +141,7 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
     let targetRotation = { x: -0.12, y: -0.7 };
     let rotation = { ...targetRotation };
     let cameraDistance = 6.8;
+    let patientModel: Group | null = null;
 
     const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -139,6 +184,19 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
     markerMaterialRef.current = markerMaterial;
     modelRoot.add(marker);
 
+    const anatomyGuide = new Group();
+    anatomyGuide.visible = viewModeRef.current === 'anatomical';
+    Object.values(regions).forEach((region) => {
+      const guide = new Mesh(
+        new BoxGeometry(...region.size),
+        new MeshBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.11, depthWrite: false })
+      );
+      guide.position.set(...region.position);
+      anatomyGuide.add(guide);
+    });
+    anatomyGuideRef.current = anatomyGuide;
+    modelRoot.add(anatomyGuide);
+
     const resize = () => {
       const parent = canvas.parentElement;
       if (!parent) return;
@@ -152,11 +210,13 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
     resize();
 
     const loader = new GLTFLoader();
+    loader.setMeshoptDecoder(MeshoptDecoder);
     loader.load(
-      '/models/paciente-canino.glb',
+      model.modelUrl,
       (gltf) => {
         if (disposed) return;
         const patient = gltf.scene;
+        patientModel = patient;
         const bounds = new Box3().setFromObject(patient);
         const center = bounds.getCenter(new Vector3());
         const size = bounds.getSize(new Vector3());
@@ -169,9 +229,28 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
           if (mesh.isMesh) {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            materials.forEach((rawMaterial) => {
+              const material = rawMaterial as MeshStandardMaterial;
+              if (!material.color) return;
+              surfaceMaterialsRef.current.push({
+                material,
+                color: material.color.clone(),
+                opacity: material.opacity,
+                transparent: material.transparent,
+              });
+            });
           }
         });
         modelRoot.add(patient);
+        const anatomyView = viewModeRef.current === 'anatomical';
+        anatomyGuide.visible = anatomyView;
+        surfaceMaterialsRef.current.forEach((entry) => {
+          entry.material.transparent = anatomyView || entry.transparent;
+          entry.material.opacity = anatomyView ? Math.min(entry.opacity, 0.3) : entry.opacity;
+          if (anatomyView) entry.material.color.lerp(new Color('#7dd3fc'), 0.26);
+          entry.material.needsUpdate = true;
+        });
         setLoading(false);
       },
       undefined,
@@ -230,11 +309,34 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
       canvas.removeEventListener('wheel', onWheel);
       marker.geometry.dispose();
       markerMaterial.dispose();
+      const disposedMaterials = new Set<MeshStandardMaterial>();
+      patientModel?.traverse((object) => {
+        const mesh = object as Mesh;
+        if (!mesh.isMesh) return;
+        mesh.geometry.dispose();
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        materials.forEach((rawMaterial) => {
+          const material = rawMaterial as MeshStandardMaterial;
+          if (!disposedMaterials.has(material)) {
+            material.dispose();
+            disposedMaterials.add(material);
+          }
+        });
+      });
+      anatomyGuide.traverse((object) => {
+        const mesh = object as Mesh;
+        if (mesh.isMesh) {
+          mesh.geometry.dispose();
+          (mesh.material as MeshBasicMaterial).dispose();
+        }
+      });
       renderer.dispose();
       markerRef.current = null;
       markerMaterialRef.current = null;
+      anatomyGuideRef.current = null;
+      surfaceMaterialsRef.current = [];
     };
-  }, []);
+  }, [model.modelUrl]);
 
   const toggleFullscreen = () => {
     const container = canvasRef.current?.closest('[data-simulator]') as HTMLElement | null;
@@ -260,11 +362,21 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
             <Crosshair className="h-4 w-4 text-cyan-300" />
             Exploración 3D vinculada al caso
           </div>
-          <p className="mt-0.5 text-xs text-slate-400">{clinicalCase.patient.name} · {clinicalCase.patient.species}</p>
+          <p className="mt-0.5 text-xs text-slate-400">{clinicalCase.patient.name} · {model.label} · {viewMode === 'clinical' ? 'Vista clínica' : 'Vista anatómica'}</p>
         </div>
-        <button type="button" onClick={toggleFullscreen} className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-800">
-          <Maximize2 className="h-3.5 w-3.5" /> {isFullscreen ? 'Salir de pantalla completa' : 'Ampliar vista'}
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-slate-700 bg-slate-950/40 p-0.5">
+            <button type="button" onClick={() => setViewMode('clinical')} className={cn('inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition', viewMode === 'clinical' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800')}>
+              <Eye className="h-3.5 w-3.5" /> Vista clínica
+            </button>
+            <button type="button" onClick={() => setViewMode('anatomical')} className={cn('inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition', viewMode === 'anatomical' ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-800')}>
+              <Layers3 className="h-3.5 w-3.5" /> Vista anatómica
+            </button>
+          </div>
+          <button type="button" onClick={toggleFullscreen} className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-800">
+            <Maximize2 className="h-3.5 w-3.5" /> {isFullscreen ? 'Salir' : 'Ampliar'}
+          </button>
+        </div>
       </div>
 
       <div className="grid min-h-[420px] lg:grid-cols-[minmax(0,1.55fr)_minmax(250px,0.75fr)]">
@@ -286,8 +398,20 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
         </div>
 
         <aside className="border-t border-slate-800 bg-[#0a1d2c] p-4 text-slate-100 lg:border-l lg:border-t-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Hallazgo clínico activo</p>
-          {activeFinding && activeRegion ? (
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">{viewMode === 'clinical' ? 'Hallazgo clínico activo' : 'Mapa anatómico de referencia'}</p>
+          {viewMode === 'anatomical' ? (
+            <div className="mt-3">
+              <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
+                <p className="text-sm font-semibold">Sistemas anatómicos</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">La transparencia permite ubicar por región los sistemas que se revisan en el caso. No se carga un modelo de corazón independiente.</p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {Object.values(regions).slice(0, 8).map((region) => (
+                  <div key={region.label} className="rounded-md border border-slate-700/80 bg-slate-950/25 px-2.5 py-2 text-xs text-slate-300">{region.label}</div>
+                ))}
+              </div>
+            </div>
+          ) : activeFinding && activeRegion ? (
             <div className="mt-3">
               <div className={cn('flex items-start gap-2 rounded-lg border p-3', activeFinding.isAbnormal ? 'border-rose-400/35 bg-rose-500/10' : 'border-cyan-400/30 bg-cyan-500/10')}>
                 {activeFinding.isAbnormal ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />}
@@ -301,12 +425,24 @@ export function Clinical3DSimulator({ clinicalCase, activeFinding }: Clinical3DS
                 <p className="mt-1 text-sm font-medium text-slate-100">{activeRegion.label}</p>
                 <p className="mt-1 text-xs text-slate-400">Técnica: {activeFinding.technique}</p>
               </div>
+              {diagnosisText?.trim() && (
+                <div className="mt-3 rounded-lg border border-violet-400/30 bg-violet-500/10 p-3">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-violet-200">Diagnóstico indicado</p>
+                  <p className="mt-1 text-sm font-medium text-slate-100">{diagnosisText.trim()}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="mt-3 rounded-lg border border-dashed border-slate-700 p-4 text-center">
               <MousePointer2 className="mx-auto h-5 w-5 text-cyan-300" />
               <p className="mt-2 text-sm font-medium">Explora para localizar</p>
               <p className="mt-1 text-xs leading-relaxed text-slate-400">Al realizar una técnica en «Examen», aquí verás qué hallazgo se encontró y su ubicación.</p>
+              {diagnosisText?.trim() && (
+                <div className="mt-3 rounded-md border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-left">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-violet-200">Diagnóstico indicado</p>
+                  <p className="mt-1 text-xs font-medium text-slate-100">{diagnosisText.trim()}</p>
+                </div>
+              )}
             </div>
           )}
 
