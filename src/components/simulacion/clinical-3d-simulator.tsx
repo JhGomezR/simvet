@@ -73,12 +73,12 @@ const animalModels: Record<AnimalModel, { label: string; clinicalModelUrl: strin
   dog: {
     label: 'Perro',
     clinicalModelUrl: '/models/perro-3d.glb',
-    anatomicalModelUrl: '/models/anatomia-animal-3d.glb',
+    anatomicalModelUrl: '/models/perro-anatomia-3d.glb',
   },
   cat: {
     label: 'Gato',
     clinicalModelUrl: '/models/gato-3d.glb',
-    anatomicalModelUrl: '/models/anatomia-animal-3d.glb',
+    anatomicalModelUrl: '/models/gato-anatomia-3d.glb',
   },
 };
 
@@ -390,7 +390,7 @@ export function Clinical3DSimulator({
               </button>
               <button type="button" aria-pressed={viewMode === 'anatomical'} onClick={() => setViewMode('anatomical')} className={cn('flex items-start gap-3 rounded-lg border p-3 text-left transition-all', viewMode === 'anatomical' ? 'border-primary bg-primary/10 shadow-sm' : 'hover:border-primary/50 hover:bg-muted/50')}>
                 <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-md', viewMode === 'anatomical' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Layers3 className="h-4 w-4" /></span>
-                <span><span className="block text-sm font-semibold">Vista anatómica</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Partes internas y regiones relacionadas con el caso.</span></span>
+                <span><span className="block text-sm font-semibold">Vista anatómica</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Partes internas del {model.label.toLocaleLowerCase()} y regiones relacionadas con el caso.</span></span>
               </button>
             </div>
           </div>
@@ -410,7 +410,7 @@ export function Clinical3DSimulator({
             </section>
 
             <section className="border-t pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{viewMode === 'clinical' ? 'Hallazgo activo' : 'Referencia anatómica'}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{viewMode === 'clinical' ? 'Hallazgo activo' : `Anatomía del ${model.label.toLocaleLowerCase()}`}</p>
               {activeFinding && activeRegion ? (
                 <div className={cn('mt-2 rounded-lg border p-3', activeFinding.isAbnormal ? 'border-rose-200 bg-rose-50' : 'border-sky-200 bg-sky-50')}>
                   <div className="flex gap-2">
