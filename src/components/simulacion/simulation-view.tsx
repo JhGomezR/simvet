@@ -356,6 +356,8 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         clinicalCase={clinicalCase}
         activeFinding={activeFinding}
         diagnosisText={diagnosisText}
+        vitals={vitalsHistory[vitalsHistory.length - 1]}
+        patientStatus={patientStatus}
       />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
