@@ -15,13 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { ClinicalCase } from '@/lib/types';
+import type { ClinicalCase, PhysicalExamFinding } from '@/lib/types';
 
 interface DecisionPanelProps {
   onAction: (actionType: string, actionId: string, actionLabel: string) => void;
   completedSteps: Record<string, boolean>;
   isPatientStable: boolean;
   clinicalCase?: ClinicalCase;
+  onFindingActivated?: (finding: PhysicalExamFinding) => void;
 }
 
 const defaultEvaluation = ['Vía Aérea', 'Respiración', 'Circulación', 'Discapacidad', 'Exposición'];
@@ -32,6 +33,7 @@ export function DecisionPanel({
   completedSteps,
   isPatientStable,
   clinicalCase,
+  onFindingActivated,
 }: DecisionPanelProps) {
   const allEvaluationDone = defaultEvaluation.every((action) => completedSteps[action]);
   const [revealedAnamnesis, setRevealedAnamnesis] = useState<Record<string, string>>({});
@@ -51,6 +53,8 @@ export function DecisionPanel({
   const handleExam = (id: string, technique: string, finding: string) => {
     setRevealedExam((prev) => ({ ...prev, [id]: finding }));
     onAction('exam', id, technique);
+    const selectedFinding = examItems.find((item) => item.id === id);
+    if (selectedFinding) onFindingActivated?.(selectedFinding);
   };
 
   const handleTest = (id: string, name: string) => {

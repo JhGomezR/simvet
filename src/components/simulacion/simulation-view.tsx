@@ -11,6 +11,7 @@ import { DecisionPanel } from './decision-panel';
 import { VitalsMonitor, type PatientStatus } from './vitals-monitor';
 import { FeedbackDialog } from './feedback-dialog';
 import { AcademicProgressPanel } from './academic-progress-panel';
+import { Clinical3DSimulator } from './clinical-3d-simulator';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { attemptsRepo } from '@/lib/repositories';
@@ -21,6 +22,7 @@ import type {
   AttemptEvent,
   ClinicalCase,
   Feedback,
+  PhysicalExamFinding,
   Vitals,
 } from '@/lib/types';
 
@@ -84,6 +86,7 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
   });
   const [studentAnswers, setStudentAnswers] = useState<Record<string, string>>({});
   const [activityTimings, setActivityTimings] = useState<ActivityTiming[]>([]);
+  const [activeFinding, setActiveFinding] = useState<PhysicalExamFinding | null>(null);
 
   const eventsRef = useRef<AttemptEvent[]>([]);
   const attemptIdRef = useRef<string | null>(null);
@@ -345,6 +348,8 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
         </Button>
       </div>
 
+      <Clinical3DSimulator clinicalCase={clinicalCase} activeFinding={activeFinding} />
+
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-3">
           <PatientInfoPanel patient={clinicalCase.patient} caseInfo={clinicalCase} />
@@ -385,6 +390,7 @@ export function SimulationView({ clinicalCase }: SimulationViewProps) {
             completedSteps={completedSteps}
             isPatientStable={isPatientStable}
             clinicalCase={clinicalCase}
+            onFindingActivated={setActiveFinding}
           />
         </div>
 
